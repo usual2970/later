@@ -293,17 +293,39 @@ func (r *taskRepository) CountByStatus(ctx context.Context) (map[models.TaskStat
 }
 
 func (r *taskRepository) CleanupExpiredData(ctx context.Context) (int64, error) {
-	// Clean up tasks completed more than 7 days ago
-	query := `
-		DELETE FROM task_queue
-		WHERE status = 'completed'
-		  AND completed_at < NOW() - INTERVAL '7 days'
-	`
+	// Clean up tasks completed or dead_lettered more than 30 days ago
+	// Delete in batches to avoid long-running transactions
+	batchSize := 1000
+	var totalDeleted int64
 
-	result, err := r.db.Exec(ctx, query)
-	if err != nil {
-		return 0, err
+	for {
+		query := `
+			DELETE FROM task_queue
+			WHERE ctid IN (
+				SELECT ctid FROM task_queue
+				WHERE status IN ('completed', 'dead_lettered')
+				  AND (
+					(status = 'completed' AND completed_at < NOW() - INTERVAL '30 days')
+					OR
+					(status = 'dead_lettered' AND completed_at < NOW() - INTERVAL '30 days')
+				  )
+				LIMIT $1
+			)
+		`
+
+		result, err := r.db.Exec(ctx, query, batchSize)
+		if err != nil {
+			return totalDeleted, err
+		}
+
+		rowsAffected := result.RowsAffected()
+		totalDeleted += rowsAffected
+
+		// If we deleted fewer than the batch size, we're done
+		if rowsAffected < int64(batchSize) {
+			break
+		}
 	}
 
-	return result.RowsAffected(), nil
+	return totalDeleted, nil
 }

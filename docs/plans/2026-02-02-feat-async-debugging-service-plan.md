@@ -689,27 +689,27 @@ func (cb *CircuitBreaker) Execute(url string, fn func() error) error {
 
 #### 3.5 Dead Letter Handling
 - [x] After max retries exhausted → mark status "dead_lettered"
-- [ ] Retain in database for 30 days (deferred - cleanup task)
+- [x] Retain in database for 30 days (cleanup with batched deletes)
 - [x] Provide API endpoint to query dead lettered tasks (via ListTasks with status filter)
-- [ ] Manual resurrection: `POST /api/v1/tasks/:id/resurrect` (deferred)
+- [x] Manual resurrection: `POST /api/v1/tasks/:id/resurrect`
 
 ### Phase 4: Frontend Dashboard (Week 4)
 
 #### 4.1 Setup & Configuration
-- [ ] Create React app with Vite: `npm create vite@latest dashboard -- --template react-ts`
-- [ ] Install shadcn/ui: `npx shadcn-ui@latest init`
-- [ ] Configure Tailwind CSS with custom theme
-- [ ] Set up React Query for data fetching
-- [ ] Configure WebSocket connection
+- [x] Create React app with Vite: `npm create vite@latest dashboard -- --template react-ts`
+- [x] Install shadcn/ui components (manual setup due to Node version)
+- [x] Configure Tailwind CSS with custom theme
+- [x] Set up React Query for data fetching
+- [ ] Configure WebSocket connection (deferred)
 
 #### 4.2 Core Components
-- [ ] TaskList component (shadcn Table)
-- [ ] TaskDetail component (shadcn Card, Dialog)
-- [ ] TaskFilters component (shadcn Input, Select)
-- [ ] TaskStats component (shadcn Card, Badge)
-- [ ] RetryButton component (shadcn Button)
-- [ ] CancelButton component (shadcn AlertDialog)
-- [ ] StatusBadge component (shadcn Badge)
+- [x] TaskList component (shadcn Table with pagination)
+- [ ] TaskDetail component (shadcn Card, Dialog) (deferred - basic view working)
+- [x] TaskFilters component (integrated into TaskList)
+- [x] TaskStats component (shadcn Card, Badge)
+- [x] RetryButton component (shadcn Button)
+- [x] CancelButton component (integrated into TaskList)
+- [x] StatusBadge component (shadcn Badge)
 
 **Example: TaskList Component**
 ```tsx

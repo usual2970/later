@@ -380,3 +380,80 @@ func (h *Handler) GetStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+// ResurrectTask handles POST /api/v1/tasks/:id/resurrect
+func (h *Handler) ResurrectTask(c *gin.Context) {
+	id := c.Param("id")
+
+	ctx := c.Request.Context()
+	task, err := h.taskService.GetTask(ctx, id)
+	if err != nil {
+		if err == usecase.ErrTaskNotFound {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{
+				Error: "task_not_found",
+				Message: "Task not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: "internal_error",
+			Message: "Failed to get task",
+		})
+		return
+	}
+
+	// Can only resurrect dead_lettered tasks
+	if task.Status != models.TaskStatusDeadLettered {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: "invalid_status",
+			Message: "Can only resurrect dead_lettered tasks",
+		})
+		return
+	}
+
+	// Reset task for resurrection
+	task.Status = models.TaskStatusPending
+	task.RetryCount = 0
+	task.NextRetryAt = nil
+	task.ErrorMessage = nil
+	task.StartedAt = nil
+	task.CompletedAt = nil
+
+	if err := h.taskService.UpdateTask(ctx, task); err != nil {
+		log.Printf("Failed to resurrect task: %v", err)
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: "internal_error",
+			Message: "Failed to resurrect task",
+		})
+		return
+	}
+
+	// If immediate execution, submit to worker pool
+	if task.ShouldExecuteNow() {
+		h.scheduler.SubmitTaskImmediately(task)
+	}
+
+	// Convert JSONBytes to json.RawMessage for response
+	var payload json.RawMessage
+	if len(task.Payload) > 0 {
+		payload = json.RawMessage(task.Payload)
+	}
+
+	response := dto.TaskResponse{
+		ID:                task.ID,
+		Name:              task.Name,
+		Payload:           payload,
+		CallbackURL:       task.CallbackURL,
+		Status:            task.Status,
+		CreatedAt:         task.CreatedAt,
+		ScheduledFor:      task.ScheduledAt,
+		MaxRetries:       task.MaxRetries,
+		RetryCount:       task.RetryCount,
+		CallbackAttempts: task.CallbackAttempts,
+		Priority:         task.Priority,
+		Tags:             task.Tags,
+		EstimatedExecution: "immediate",
+	}
+
+	c.JSON(http.StatusAccepted, response)
+}

@@ -60,6 +60,7 @@ func (s *Server) registerRoutes(engine *gin.Engine, h *handler.Handler) {
 		v1.GET("/tasks/:id", h.GetTask)
 		v1.DELETE("/tasks/:id", h.CancelTask)
 		v1.POST("/tasks/:id/retry", h.RetryTask)
+		v1.POST("/tasks/:id/resurrect", h.ResurrectTask)
 
 		// Statistics
 		v1.GET("/tasks/stats", h.GetStats)
