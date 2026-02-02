@@ -17,7 +17,7 @@ type Scheduler struct {
 	cleanupTicker        *time.Ticker
 
 	taskRepo   repositories.TaskRepository
-	workerPool chan *models.Task
+	workerPool *WorkerPool
 	logger     *zap.Logger
 	quit       chan struct{}
 }
@@ -25,7 +25,7 @@ type Scheduler struct {
 // NewScheduler creates a new scheduler with tiered polling
 func NewScheduler(
 	repo repositories.TaskRepository,
-	workerPool chan *models.Task,
+	workerPool *WorkerPool,
 	cfg SchedulerConfig,
 ) *Scheduler {
 	return &Scheduler{
@@ -83,10 +83,9 @@ func (s *Scheduler) Stop() {
 
 // SubmitTaskImmediately submits a task directly to the worker pool
 func (s *Scheduler) SubmitTaskImmediately(task *models.Task) {
-	select {
-	case s.workerPool <- task:
+	if s.workerPool.SubmitTask(task) {
 		log.Printf("Task submitted immediately: %s (priority: %d)", task.ID, task.Priority)
-	default:
+	} else {
 		log.Printf("Worker pool full, task will be picked up by next poll: %s", task.ID)
 	}
 }
@@ -109,10 +108,9 @@ func (s *Scheduler) pollDueTasks(tier string, minPriority int, limit int) {
 
 	submitted := 0
 	for _, task := range tasks {
-		select {
-		case s.workerPool <- task:
+		if s.workerPool.SubmitTask(task) {
 			submitted++
-		default:
+		} else {
 			log.Printf("Worker pool full, task will be retried next cycle: %s", task.ID)
 		}
 	}

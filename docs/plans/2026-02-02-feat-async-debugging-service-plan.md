@@ -397,13 +397,13 @@ tags: string (comma-separated)
 ### Phase 3: Scheduling & Execution (Week 3)
 
 #### 3.1 Task Scheduler with Tiered Polling
-- [ ] Implement `time.Ticker` based scheduler (no external dependencies)
-- [ ] Tiered polling strategy:
+- [x] Implement `time.Ticker` based scheduler (no external dependencies)
+- [x] Tiered polling strategy:
   - **High-priority tasks** (priority > 5): Poll every 2 seconds
   - **Normal tasks** (priority 0-5): Poll every 3 seconds
   - **Low-priority/cleanup**: Poll every 30 seconds
-- [ ] Worker pool pattern (configurable, default 20 workers)
-- [ ] SELECT FOR UPDATE SKIP LOCKED for distributed workers
+- [x] Worker pool pattern (configurable, default 20 workers)
+- [x] SELECT FOR UPDATE SKIP LOCKED for distributed workers
 
 **Implementation:**
 
@@ -611,19 +611,19 @@ Execute Task
 - ✅ Simple and maintainable code
 
 #### 3.2 Task Executor
-- [ ] Update task status to "processing"
-- [ ] Record worker_id and started_at
-- [ ] Execute business logic (future: user-defined hooks)
-- [ ] Initiate callback delivery
-- [ ] Handle completion/failure
+- [x] Update task status to "processing"
+- [x] Record worker_id and started_at
+- [x] Execute business logic (future: user-defined hooks)
+- [x] Initiate callback delivery
+- [x] Handle completion/failure
 
 #### 3.3 Callback Delivery Service
-- [ ] HTTP POST with timeout
-- [ ] Response status classification:
+- [x] HTTP POST with timeout
+- [x] Response status classification:
   - Success: 200-299 → mark task "completed"
   - Retry: 500-599, 429 → schedule retry
   - Failure: 400-499 (except 429) → mark task "failed"
-- [ ] Exponential backoff calculation:
+- [x] Exponential backoff calculation:
   ```
   delay = base_backoff * (2 ^ retry_count) + jitter
   max_delay = 24 hours
@@ -656,10 +656,10 @@ func (s *callbackService) deliverCallback(ctx context.Context, task *Task) error
 ```
 
 #### 3.4 Circuit Breaker
-- [ ] Implement circuit breaker for unreliable callback URLs
-- [ ] Threshold: 5 consecutive failures → circuit opens
-- [ ] Open timeout: 60 seconds before half-open
-- [ ] Half-open: Allow 1 test request
+- [x] Implement circuit breaker for unreliable callback URLs
+- [x] Threshold: 5 consecutive failures → circuit opens
+- [x] Open timeout: 60 seconds before half-open
+- [x] Half-open: Allow 1 test request
 
 ```go
 // internal/infrastructure/circuitbreaker/circuit_breaker.go
@@ -688,10 +688,10 @@ func (cb *CircuitBreaker) Execute(url string, fn func() error) error {
 ```
 
 #### 3.5 Dead Letter Handling
-- [ ] After max retries exhausted → mark status "dead_lettered"
-- [ ] Retain in database for 30 days
-- [ ] Provide API endpoint to query dead lettered tasks
-- [ ] Manual resurrection: `POST /api/v1/tasks/:id/resurrect`
+- [x] After max retries exhausted → mark status "dead_lettered"
+- [ ] Retain in database for 30 days (deferred - cleanup task)
+- [x] Provide API endpoint to query dead lettered tasks (via ListTasks with status filter)
+- [ ] Manual resurrection: `POST /api/v1/tasks/:id/resurrect` (deferred)
 
 ### Phase 4: Frontend Dashboard (Week 4)
 

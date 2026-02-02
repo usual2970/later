@@ -51,6 +51,7 @@ type Task struct {
 	Priority      int      `json:"priority" db:"priority"` // 0-10, higher is more urgent
 	Tags          []string `json:"tags,omitempty" db:"tags"`
 	ErrorMessage  *string  `json:"error_message,omitempty" db:"error_message"`
+	WorkerID      string   `json:"worker_id,omitempty" db:"worker_id"`
 }
 
 // JSONBytes is a custom type for handling JSONB in PostgreSQL

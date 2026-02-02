@@ -14,12 +14,17 @@ import (
 	"later/internal/handler"
 	"later/internal/repository/postgres"
 	"later/internal/usecase"
-	"later/internal/domain/models"
+	"later/internal/infrastructure/circuitbreaker"
+
+	"go.uber.org/zap"
 )
 
 func main() {
 	// Load configuration
 	cfg := configs.LoadConfig()
+
+	// Initialize logger
+	logger := zap.NewNop() // TODO: Use proper logger based on config
 
 	// Initialize database
 	db, err := postgres.NewConnection(cfg.Database.URL)
@@ -36,11 +41,31 @@ func main() {
 	// Initialize repositories
 	taskRepo := postgres.NewTaskRepository(db)
 
-	// Initialize worker pool
-	workerPool := make(chan *models.Task, cfg.Worker.PoolSize)
+	// Initialize circuit breaker
+	cb := circuitbreaker.NewCircuitBreaker(
+		5,                             // maxFailures
+		60*time.Second,                // resetTimeout
+	)
+
+	// Initialize callback service
+	callbackService := usecase.NewCallbackService(
+		cfg.Callback.DefaultTimeout,
+		cb,
+		cfg.Callback.Secret,
+		logger,
+	)
 
 	// Initialize use cases
 	taskService := usecase.NewTaskService(taskRepo)
+
+	// Initialize worker pool
+	workerPool := usecase.NewWorkerPool(
+		cfg.Worker.PoolSize,
+		taskService,
+		callbackService,
+		logger,
+	)
+	workerPool.Start(cfg.Worker.PoolSize)
 
 	// Convert configs.Scheduler to usecase.SchedulerConfig
 	schedulerCfg := usecase.SchedulerConfig{
@@ -71,6 +96,7 @@ func main() {
 	}()
 
 	log.Printf("Server started on %s", cfg.Server.Address)
+	log.Printf("Worker pool started with %d workers", cfg.Worker.PoolSize)
 
 	// Graceful shutdown
 	<-ctx.Done()
@@ -85,6 +111,9 @@ func main() {
 
 	// Stop scheduler
 	scheduler.Stop()
+
+	// Stop worker pool
+	workerPool.Stop()
 
 	log.Println("Server stopped")
 }

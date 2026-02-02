@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS task_queue (
     priority INTEGER NOT NULL DEFAULT 0 CHECK (priority >= 0 AND priority <= 10),
     tags TEXT[],
     error_message TEXT,
+    worker_id VARCHAR(50),
 
     CHECK (retry_count <= max_retries)
 );
