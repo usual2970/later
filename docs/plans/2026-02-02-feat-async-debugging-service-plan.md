@@ -205,7 +205,7 @@ WHERE worker_id IS NOT NULL;
 ### Phase 2: Core API (Week 2)
 
 #### 2.1 Task Submission API
-- [ ] `POST /api/v1/tasks` - Submit new task
+- [x] `POST /api/v1/tasks` - Submit new task
 
 **Request (Immediate Execution):**
 ```http
@@ -342,10 +342,10 @@ func (s *Scheduler) SubmitTaskImmediately(task *Task) {
 ```
 
 #### 2.2 Task Query APIs
-- [ ] `GET /api/v1/tasks` - List tasks (paginated, filterable)
-- [ ] `GET /api/v1/tasks/:id` - Get task details
-- [ ] `DELETE /api/v1/tasks/:id` - Cancel pending task
-- [ ] `POST /api/v1/tasks/:id/retry` - Retry failed task
+- [x] `GET /api/v1/tasks` - List tasks (paginated, filterable)
+- [x] `GET /api/v1/tasks/:id` - Get task details
+- [x] `DELETE /api/v1/tasks/:id` - Cancel pending task
+- [x] `POST /api/v1/tasks/:id/retry` - Retry failed task
 
 **List Tasks Query Parameters:**
 ```
@@ -358,7 +358,7 @@ tags: string (comma-separated)
 ```
 
 #### 2.3 Statistics API
-- [ ] `GET /api/v1/tasks/stats` - Aggregated statistics
+- [x] `GET /api/v1/tasks/stats` - Aggregated statistics
 
 ```json
 {

@@ -3,12 +3,10 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"later/internal/domain/models"
 	"later/internal/domain/repositories"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

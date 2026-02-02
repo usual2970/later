@@ -4,8 +4,10 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 	"later/configs"
 	"later/internal/handler"
+	"later/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,14 +22,53 @@ type Server struct {
 
 // NewServer creates a new HTTP server
 func NewServer(cfg configs.ServerConfig, h *handler.Handler) *Server {
-	engine := gin.Default()
+	engine := gin.New()
 
-	// TODO: Register routes here
+	// Add middleware
+	engine.Use(middleware.Logger())
+	engine.Use(middleware.Recovery())
+	engine.Use(middleware.CORS())
 
-	return &Server{
+	s := &Server{
 		engine: engine,
 		config: cfg,
 		handler: h,
+	}
+
+	// Register routes
+	s.registerRoutes(engine, h)
+
+	return s
+}
+
+// registerRoutes sets up all API routes
+func (s *Server) registerRoutes(engine *gin.Engine, h *handler.Handler) {
+	// Health check
+	engine.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+	})
+
+	// API v1 routes
+	v1 := engine.Group("/api/v1")
+	{
+		// Task routes
+		v1.POST("/tasks", h.CreateTask)
+		v1.GET("/tasks", h.ListTasks)
+		v1.GET("/tasks/:id", h.GetTask)
+		v1.DELETE("/tasks/:id", h.CancelTask)
+		v1.POST("/tasks/:id/retry", h.RetryTask)
+
+		// Statistics
+		v1.GET("/tasks/stats", h.GetStats)
+
+		// WebSocket stream
+		v1.GET("/tasks/stream", func(c *gin.Context) {
+			// TODO: Implement WebSocket
+			c.JSON(http.StatusOK, gin.H{"message": "WebSocket coming soon"})
+		})
 	}
 }
 

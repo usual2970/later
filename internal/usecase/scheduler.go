@@ -5,7 +5,6 @@ import (
 	"later/internal/domain/repositories"
 	"later/internal/domain/models"
 	"log"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
