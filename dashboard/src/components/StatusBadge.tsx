@@ -1,5 +1,5 @@
 import { Badge } from './ui/badge';
-import { TaskStatus } from '../lib/api';
+import type { TaskStatus } from '../lib/api';
 
 interface StatusBadgeProps {
   status: TaskStatus;

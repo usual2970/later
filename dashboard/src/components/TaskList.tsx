@@ -9,8 +9,9 @@ import {
 import { Button } from './ui/button';
 import { StatusBadge } from './StatusBadge';
 import { useTasks, useCancelTask, useRetryTask, useResurrectTask } from '../hooks/useTasks';
-import { TaskListParams, TaskStatus } from '../lib/api';
 import { useState } from 'react';
+import { TaskDetail } from './TaskDetail';
+import type { TaskListParams, TaskStatus, Task } from '../lib/api';
 
 export function TaskList() {
   const [params, setParams] = useState<TaskListParams>({
@@ -19,6 +20,8 @@ export function TaskList() {
     sort_by: 'created_at',
     sort_order: 'desc',
   });
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data, isLoading } = useTasks(params);
   const cancelTask = useCancelTask();
@@ -41,6 +44,11 @@ export function TaskList() {
 
   const handleStatusFilter = (status?: TaskStatus) => {
     setParams({ ...params, status, page: 1 });
+  };
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setDetailOpen(true);
   };
 
   if (isLoading) {
@@ -119,11 +127,13 @@ export function TaskList() {
               </TableRow>
             ) : (
               data?.tasks.map((task) => (
-                <TableRow key={task.id}>
+                <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell className="font-mono text-xs">
                     {task.id.slice(0, 8)}
                   </TableCell>
-                  <TableCell className="font-medium">{task.name}</TableCell>
+                  <TableCell className="font-medium" onClick={() => handleTaskClick(task)}>
+                    {task.name}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={task.status} />
                   </TableCell>
@@ -206,6 +216,13 @@ export function TaskList() {
           </div>
         </div>
       )}
+
+      {/* Task Detail Dialog */}
+      <TaskDetail
+        task={selectedTask}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   );
 }
