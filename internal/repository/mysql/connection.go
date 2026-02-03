@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -12,13 +14,63 @@ import (
 	"later/configs"
 )
 
+// parseDSN converts PostgreSQL-style URL to MySQL DSN format
+// Supports both formats:
+// - mysql://user:pass@host:port/db?params
+// - user:pass@tcp(host:port)/db?params
+func parseDSN(databaseURL string) string {
+	// Remove mysql:// prefix if present
+	dsn := strings.TrimPrefix(databaseURL, "mysql://")
+
+	// Parse the URL to extract components
+	u, err := url.Parse("mysql://" + dsn)
+	if err != nil {
+		// If parsing fails, return as-is (might already be in MySQL format)
+		return dsn
+	}
+
+	// Rebuild in MySQL DSN format
+	// Format: user:pass@tcp(host:port)/dbname?params
+	var mysqlDSN strings.Builder
+
+	// Add user:pass@
+	if u.User != nil {
+		mysqlDSN.WriteString(u.User.String())
+		mysqlDSN.WriteString("@")
+	}
+
+	// Add tcp(host:port)
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "3306"
+	}
+	mysqlDSN.WriteString(fmt.Sprintf("tcp(%s:%s)", host, port))
+
+	// Add /dbname
+	if u.Path != "" && u.Path != "/" {
+		mysqlDSN.WriteString(u.Path)
+	}
+
+	// Add query parameters
+	if u.RawQuery != "" {
+		mysqlDSN.WriteString("?")
+		mysqlDSN.WriteString(u.RawQuery)
+	}
+
+	return mysqlDSN.String()
+}
+
 // NewConnection creates a new MySQL connection pool
 func NewConnection(cfg *configs.DatabaseConfig) (*sqlx.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Convert URL format to MySQL DSN format
+	dsn := parseDSN(cfg.URL)
+
 	// Connect to MySQL
-	db, err := sqlx.Connect("mysql", cfg.URL)
+	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
