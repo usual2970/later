@@ -55,7 +55,7 @@ type Task struct {
 
 	// Soft delete
 	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
-	DeletedBy string     `json:"deleted_by,omitempty" db:"deleted_by"`
+	DeletedBy *string    `json:"deleted_by,omitempty" db:"deleted_by"`
 }
 
 // JSONBytes is a custom type for handling JSONB in PostgreSQL
