@@ -1,11 +1,7 @@
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
 
 export function WebSocketStatus() {
-  // WebSocket URL - same as API URL but with ws:// or wss:// protocol
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-  const wsUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/v1/tasks/stream';
-
-  const { isConnected } = useWebSocket(wsUrl);
+  const { isConnected } = useWebSocketContext();
 
   return (
     <div className="flex items-center gap-2">

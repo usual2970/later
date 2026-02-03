@@ -36,22 +36,22 @@ CREATE TABLE IF NOT EXISTS task_queue (
 );
 
 -- Performance indexes for active queries
-CREATE INDEX idx_tasks_status_scheduled_priority
+CREATE INDEX IF NOT EXISTS idx_tasks_status_scheduled_priority
 ON task_queue(status, scheduled_at, priority DESC)
 WHERE status IN ('pending', 'processing', 'failed');
 
-CREATE INDEX idx_tasks_next_retry
+CREATE INDEX IF NOT EXISTS idx_tasks_next_retry
 ON task_queue(next_retry_at)
 WHERE next_retry_at IS NOT NULL AND status = 'failed';
 
-CREATE INDEX idx_tasks_created_at
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at
 ON task_queue(created_at DESC);
 
-CREATE INDEX idx_tasks_tags
+CREATE INDEX IF NOT EXISTS idx_tasks_tags
 ON task_queue USING GIN(tags);
 
 -- Index for queries by status and user_id (future multi-tenancy)
-CREATE INDEX idx_tasks_status_priority
+CREATE INDEX IF NOT EXISTS idx_tasks_status_priority
 ON task_queue(status, priority DESC)
 WHERE status IN ('pending');
 

@@ -6,6 +6,7 @@
 *.dylib
 bin/
 *.test
+server
 
 # Test binary, built with `go test -c`
 *.out
@@ -34,3 +35,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# configs
+configs/*.yaml

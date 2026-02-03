@@ -1,0 +1,30 @@
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+# Database Configuration
+database:
+  url: "postgres://later:later@localhost:5432/later?sslmode=disable"
+  max_connections: 100
+
+# Scheduler Configuration
+scheduler:
+  high_priority_interval: 2s   # High-priority tasks polling interval
+  normal_priority_interval: 3s  # Normal tasks polling interval
+  cleanup_interval: 30s         # Cleanup interval for expired data
+
+# Worker Configuration
+worker:
+  pool_size: 20  # Number of concurrent workers
+
+# Callback Configuration
+callback:
+  secret: "change-this-in-production"  # HMAC secret for callback signatures
+  default_timeout: 30s                 # Default callback timeout
+  default_max_retries: 5               # Default maximum retry attempts
+
+# Logging Configuration
+log:
+  level: "info"   # debug, info, warn, error
+  format: "json"  # json or text

@@ -161,8 +161,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 			last_callback_at = $8,
 			last_callback_status = $9,
 			last_callback_error = $10,
-			error_message = $11,
-			updated_at = NOW()
+			error_message = $11
 		WHERE id = $1
 	`
 

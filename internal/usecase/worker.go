@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -110,6 +109,16 @@ func (w *Worker) processTask(task *models.Task) {
 			w.handleFailure(task, callbackErr)
 		}
 	} else {
+		// Mark task as completed
+		task.MarkAsCompleted()
+		if err := w.taskService.UpdateTask(ctx, task); err != nil {
+			w.logger.Error("Failed to mark task as completed",
+				zap.Int("worker_id", w.id),
+				zap.String("task_id", task.ID),
+				zap.Error(err))
+			return
+		}
+
 		w.logger.Info("Task completed successfully",
 			zap.Int("worker_id", w.id),
 			zap.String("task_id", task.ID))
@@ -219,12 +228,14 @@ func (p *WorkerPool) Start(workerCount int) {
 		p.workers[i].Start()
 	}
 
-	log.Printf("Worker pool started with %d workers", workerCount)
+	p.logger.Info("Worker pool started",
+		zap.Int("worker_count", workerCount),
+	)
 }
 
 // Stop gracefully shuts down all workers
 func (p *WorkerPool) Stop() {
-	log.Println("Stopping worker pool...")
+	p.logger.Info("Stopping worker pool")
 
 	// Stop all workers
 	for _, worker := range p.workers {
@@ -240,9 +251,9 @@ func (p *WorkerPool) Stop() {
 
 	select {
 	case <-done:
-		log.Println("All workers stopped")
+		p.logger.Info("All workers stopped")
 	case <-time.After(30 * time.Second):
-		log.Println("Timeout waiting for workers to stop")
+		p.logger.Warn("Timeout waiting for workers to stop")
 	}
 
 	close(p.taskChan)

@@ -12,14 +12,14 @@ import (
 
 // CreateTaskRequest represents a request to create a new task
 type CreateTaskRequest struct {
-	Name           string     `json:"name" binding:"required"`
-	Payload        []byte     `json:"payload" binding:"required"`
-	CallbackURL    string     `json:"callback_url" binding:"required,url"`
-	ScheduledFor   *time.Time `json:"scheduled_for"`
-	TimeoutSeconds *int       `json:"timeout_seconds"`
-	MaxRetries     *int       `json:"max_retries"`
-	Priority       int        `json:"priority"`
-	Tags           []string   `json:"tags"`
+	Name           string      `json:"name" binding:"required"`
+	Payload        JSONBytes   `json:"payload" binding:"required"`
+	CallbackURL    string      `json:"callback_url" binding:"required,url"`
+	ScheduledFor   *CustomTime `json:"scheduled_for"`
+	TimeoutSeconds *int        `json:"timeout_seconds"`
+	MaxRetries     *int        `json:"max_retries"`
+	Priority       int         `json:"priority"`
+	Tags           []string    `json:"tags"`
 }
 
 // Validate validates the request and returns an error if invalid
@@ -45,13 +45,14 @@ func (r *CreateTaskRequest) Validate() error {
 	}
 
 	// Validate scheduled_for (must be future or within 1 year)
-	if r.ScheduledFor != nil {
+	if r.ScheduledFor != nil && !r.ScheduledFor.IsZero() {
 		now := time.Now()
-		if r.ScheduledFor.Before(now) {
+		scheduledTime := r.ScheduledFor.Time
+		if scheduledTime.Before(now.AddDate(0, 0, -1)) {
 			// Allow tasks scheduled in the past - they'll execute immediately
 			return nil
 		}
-		if r.ScheduledFor.After(now.AddDate(1, 0, 0)) {
+		if scheduledTime.After(now.AddDate(1, 0, 0)) {
 			return fmt.Errorf("scheduled_for must be within 1 year from now")
 		}
 	}
@@ -79,13 +80,43 @@ type TaskResponse struct {
 	EstimatedExecution string            `json:"estimated_execution,omitempty"`
 }
 
+// MarshalJSON implements json.Marshaler to ensure all times are in UTC
+func (tr TaskResponse) MarshalJSON() ([]byte, error) {
+	// Create a new type to avoid infinite recursion
+	type Alias TaskResponse
+
+	aux := &struct {
+		Alias
+		CreatedAt   string `json:"created_at"`
+		ScheduledFor string `json:"scheduled_at"`
+		StartedAt    *string `json:"started_at,omitempty"`
+		CompletedAt  *string `json:"completed_at,omitempty"`
+	}{
+		Alias:        (Alias)(tr),
+		CreatedAt:    tr.CreatedAt.UTC().Format(time.RFC3339Nano),
+		ScheduledFor: tr.ScheduledFor.UTC().Format(time.RFC3339),
+	}
+
+	if tr.StartedAt != nil {
+		s := tr.StartedAt.UTC().Format(time.RFC3339Nano)
+		aux.StartedAt = &s
+	}
+
+	if tr.CompletedAt != nil {
+		s := tr.CompletedAt.UTC().Format(time.RFC3339Nano)
+		aux.CompletedAt = &s
+	}
+
+	return json.Marshal(aux)
+}
+
 // ToModel converts CreateTaskRequest to a Task entity
 func (r *CreateTaskRequest) ToModel() *models.Task {
 	now := time.Now()
 	scheduledAt := now
 
-	if r.ScheduledFor != nil {
-		scheduledAt = *r.ScheduledFor
+	if r.ScheduledFor != nil && !r.ScheduledFor.IsZero() {
+		scheduledAt = r.ScheduledFor.Time
 	}
 
 	// Set defaults
@@ -104,20 +135,14 @@ func (r *CreateTaskRequest) ToModel() *models.Task {
 		priority = 0
 	}
 
-	return &models.Task{
-		Name:                r.Name,
-		Payload:             r.Payload,
-		CallbackURL:         r.CallbackURL,
-		Status:              models.TaskStatusPending,
-		CreatedAt:           now,
-		ScheduledAt:         scheduledAt,
-		MaxRetries:          maxRetries,
-		RetryCount:          0,
-		RetryBackoffSeconds: 60,
-		CallbackTimeoutSecs: timeoutSeconds,
-		Priority:            priority,
-		Tags:                r.Tags,
-	}
+	task := models.NewTask(r.Name, r.Payload, r.CallbackURL, scheduledAt, priority)
+
+	// Override defaults with request values
+	task.MaxRetries = maxRetries
+	task.CallbackTimeoutSecs = timeoutSeconds
+	task.Tags = r.Tags
+
+	return task
 }
 
 // ListTasksQuery represents query parameters for listing tasks

@@ -1,73 +1,134 @@
-# React + TypeScript + Vite
+# Task Service Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React-based dashboard for monitoring and managing asynchronous tasks.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📊 Real-time task statistics
+- 📋 Task list with filtering and pagination
+- 🔔 Real-time WebSocket updates
+- 🎨 Modern UI with shadcn/ui components
+- 📱 Responsive design
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
 
-## Expanding the ESLint configuration
+- Node.js 20.19+ or 22.12+
+- Backend API running on port 7384
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Installation
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Install dependencies
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Configuration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file (optional):
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env
 ```
+
+The default configuration connects to `http://localhost:7384`. To use a different backend:
+
+```bash
+echo "VITE_API_BASE_URL=http://your-backend:7384" > .env
+```
+
+### Development
+
+```bash
+# Start development server
+npm run dev
+
+# Open http://localhost:5173
+```
+
+### Build
+
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | `http://localhost:7384` | Backend API base URL |
+
+## WebSocket Connection
+
+The dashboard automatically connects to the WebSocket endpoint for real-time updates:
+
+- URL: `<VITE_API_BASE_URL>/api/v1/tasks/stream`
+- Example: `ws://localhost:7384/api/v1/tasks/stream`
+
+Connection status is shown in the header (🟢 Live / 🔴 Disconnected).
+
+## Pages
+
+- **Dashboard** (`/`) - Statistics and recent tasks
+- **Tasks** (`/tasks`) - Full task list with filters
+- **Task Detail** (`/tasks/:id`) - Individual task details
+- **Dead Letter** (`/dead-letter`) - Failed tasks queue
+
+## Troubleshooting
+
+### WebSocket Connection Failed
+
+1. **Verify backend is running**
+   ```bash
+   curl http://localhost:7384/health
+   ```
+
+2. **Check the .env file**
+   ```bash
+   cat .env
+   # Should show correct VITE_API_BASE_URL
+   ```
+
+3. **Check browser console** (F12) for WebSocket errors
+
+4. **Verify port**
+   - Backend default: 7384 (see `../configs/config.yaml`)
+   - Frontend default: 7384 (see `.env.example`)
+
+### Build Errors
+
+If you encounter build errors:
+
+```bash
+# Clear cache and rebuild
+rm -rf node_modules dist
+npm install
+npm run build
+```
+
+### TypeScript Errors
+
+```bash
+# Check TypeScript
+npm run check
+```
+
+## Technology Stack
+
+- **Framework**: React + TypeScript
+- **Build Tool**: Vite
+- **UI Components**: shadcn/ui (Radix UI primitives)
+- **Styling**: Tailwind CSS
+- **State Management**: React Query
+- **Routing**: React Router v7
+- **Real-time**: WebSocket API
+
+## Documentation
+
+- [Environment Configuration](./docs/ENV_CONFIGURATION.md)
+- [Project Plan](../docs/plans/2026-02-02-feat-async-debugging-service-plan.md)

@@ -8,6 +8,7 @@ import (
 	"later/configs"
 	"later/internal/handler"
 	"later/internal/middleware"
+	"later/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,6 +18,7 @@ type Server struct {
 	engine *gin.Engine
 	config configs.ServerConfig
 	handler *handler.Handler
+	wsHub   *websocket.Hub
 	httpServer *http.Server
 }
 
@@ -29,25 +31,31 @@ func NewServer(cfg configs.ServerConfig, h *handler.Handler) *Server {
 	engine.Use(middleware.Recovery())
 	engine.Use(middleware.CORS())
 
+	// Create WebSocket hub
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
 	s := &Server{
 		engine: engine,
 		config: cfg,
 		handler: h,
+		wsHub:   wsHub,
 	}
 
 	// Register routes
-	s.registerRoutes(engine, h)
+	s.registerRoutes(engine, h, wsHub)
 
 	return s
 }
 
 // registerRoutes sets up all API routes
-func (s *Server) registerRoutes(engine *gin.Engine, h *handler.Handler) {
+func (s *Server) registerRoutes(engine *gin.Engine, h *handler.Handler, wsHub *websocket.Hub) {
 	// Health check
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
+			"websocket_clients": wsHub.GetClientCount(),
 		})
 	})
 
@@ -67,8 +75,7 @@ func (s *Server) registerRoutes(engine *gin.Engine, h *handler.Handler) {
 
 		// WebSocket stream
 		v1.GET("/tasks/stream", func(c *gin.Context) {
-			// TODO: Implement WebSocket
-			c.JSON(http.StatusOK, gin.H{"message": "WebSocket coming soon"})
+			wsHub.HandleWebSocket(c)
 		})
 	}
 }
@@ -88,4 +95,15 @@ func (s *Server) ListenAndServe() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	log.Println("Shutting down HTTP server...")
 	return s.httpServer.Shutdown(ctx)
+}
+
+// GetWSHub returns the WebSocket hub (for use by other components)
+func (s *Server) GetWSHub() *websocket.Hub {
+	return s.wsHub
+}
+
+// SetWSHub updates the WebSocket hub in the handler (used after server creation)
+func (s *Server) SetWSHub(wsHub *websocket.Hub) {
+	s.wsHub = wsHub
+	s.handler.SetWSHub(wsHub)
 }

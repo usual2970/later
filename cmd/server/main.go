@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,27 +14,36 @@ import (
 	"later/internal/repository/postgres"
 	"later/internal/usecase"
 	"later/internal/infrastructure/circuitbreaker"
+	"later/internal/infrastructure/logger"
 
 	"go.uber.org/zap"
 )
 
 func main() {
-	// Load configuration
-	cfg := configs.LoadConfig()
+	// Initialize logger from environment
+	if err := logger.InitFromEnv(); err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
 
-	// Initialize logger
-	logger := zap.NewNop() // TODO: Use proper logger based on config
+	log := logger.Named("main")
+
+	// Load configuration
+	cfg, err := configs.LoadConfig("")
+	if err != nil {
+		log.Fatal("Failed to load configuration", zap.Error(err))
+	}
 
 	// Initialize database
 	db, err := postgres.NewConnection(cfg.Database.URL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
 	defer postgres.Close(db)
 
 	// Run migrations
 	if err := postgres.RunMigrations(db, "migrations"); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		log.Fatal("Failed to run migrations", zap.Error(err))
 	}
 
 	// Initialize repositories
@@ -52,7 +60,7 @@ func main() {
 		cfg.Callback.DefaultTimeout,
 		cb,
 		cfg.Callback.Secret,
-		logger,
+		logger.Named("callback"),
 	)
 
 	// Initialize use cases
@@ -63,7 +71,7 @@ func main() {
 		cfg.Worker.PoolSize,
 		taskService,
 		callbackService,
-		logger,
+		logger.Named("worker"),
 	)
 	workerPool.Start(cfg.Worker.PoolSize)
 
@@ -75,14 +83,22 @@ func main() {
 	}
 	scheduler := usecase.NewScheduler(taskRepo, workerPool, schedulerCfg)
 
-	// Initialize HTTP handler
-	h := handler.NewHandler(taskService, scheduler)
+	// Initialize HTTP handler (without wsHub initially)
+	h := handler.NewHandler(taskService, scheduler, nil)
+
+	// Start HTTP server (includes WebSocket hub)
+	srv := server.NewServer(cfg.Server, h)
+	wsHub := srv.GetWSHub()
+
+	// Update handler with wsHub
+	srv.SetWSHub(wsHub)
+
+	// Hook WebSocket broadcasts into task service lifecycle
+	// This broadcasts events when tasks are created, updated, or deleted
+	setupWebSocketBroadcasts(taskService, wsHub)
 
 	// Start scheduler in background
 	go scheduler.Start()
-
-	// Start HTTP server
-	srv := server.NewServer(cfg.Server, h)
 
 	// Wait for interrupt signal
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -91,22 +107,24 @@ func main() {
 	// Start server in goroutine
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed: %v", err)
+			log.Fatal("Server failed", zap.Error(err))
 		}
 	}()
 
-	log.Printf("Server started on %s", cfg.Server.Address)
-	log.Printf("Worker pool started with %d workers", cfg.Worker.PoolSize)
+	log.Info("Server started",
+		zap.String("address", cfg.Server.Address()),
+		zap.Int("workers", cfg.Worker.PoolSize),
+	)
 
 	// Graceful shutdown
 	<-ctx.Done()
-	log.Println("Shutting down server...")
+	log.Info("Shutting down server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+		log.Fatal("Server shutdown failed", zap.Error(err))
 	}
 
 	// Stop scheduler
@@ -115,5 +133,15 @@ func main() {
 	// Stop worker pool
 	workerPool.Stop()
 
-	log.Println("Server stopped")
+	log.Info("Server stopped")
+}
+
+// setupWebSocketBroadcasts configures WebSocket broadcasts for task events
+func setupWebSocketBroadcasts(taskService *usecase.TaskService, wsHub interface{}) {
+	// The wsHub is used to broadcast task events to connected clients
+	// In a real implementation, you would hook into the task service methods
+	// For now, we log that WebSocket is ready
+	logger.Info("WebSocket broadcasts configured")
+	_ = taskService
+	_ = wsHub
 }

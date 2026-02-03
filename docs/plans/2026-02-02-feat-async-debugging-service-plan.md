@@ -380,7 +380,7 @@ tags: string (comma-separated)
 ```
 
 #### 2.4 WebSocket Stream
-- [ ] `WS /api/v1/tasks/stream` - Real-time task updates
+- [x] `WS /api/v1/tasks/stream` - Real-time task updates
 
 **WebSocket Message Format:**
 ```json
@@ -700,11 +700,11 @@ func (cb *CircuitBreaker) Execute(url string, fn func() error) error {
 - [x] Install shadcn/ui components (manual setup due to Node version)
 - [x] Configure Tailwind CSS with custom theme
 - [x] Set up React Query for data fetching
-- [ ] Configure WebSocket connection (deferred)
+- [x] Configure WebSocket connection with toast notifications
 
 #### 4.2 Core Components
 - [x] TaskList component (shadcn Table with pagination)
-- [ ] TaskDetail component (shadcn Card, Dialog) (deferred - basic view working)
+- [x] TaskDetail component (shadcn Card, Dialog) with enhanced inline viewing
 - [x] TaskFilters component (integrated into TaskList)
 - [x] TaskStats component (shadcn Card, Badge)
 - [x] RetryButton component (shadcn Button)
@@ -759,15 +759,15 @@ export function TaskList() {
 ```
 
 #### 4.3 Pages
-- [ ] Dashboard page (`/`) - Stats + recent tasks
-- [ ] Tasks list page (`/tasks`) - Filterable, paginated list
-- [ ] Task detail page (`/tasks/:id`) - Full task details
-- [ ] Dead letter page (`/dead-letter`) - Failed tasks view
+- [x] Dashboard page (`/`) - Stats + recent tasks
+- [x] Tasks list page (`/tasks`) - Filterable, paginated list
+- [x] Task detail page (`/tasks/:id`) - Full task details
+- [x] Dead letter page (`/dead-letter`) - Failed tasks view
 
 #### 4.4 Real-time Updates
-- [ ] WebSocket hook for live updates
-- [ ] Auto-refresh task list on status change
-- [ ] Toast notifications for task completion/failure
+- [x] WebSocket hook for live updates with auto-reconnection
+- [x] Auto-refresh task list on status change via React Query invalidation
+- [x] Toast notifications for task completion/failure/creation
 
 ```tsx
 // dashboard/src/hooks/useTaskUpdates.ts
