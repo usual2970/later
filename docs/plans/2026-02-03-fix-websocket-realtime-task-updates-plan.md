@@ -116,8 +116,8 @@ This is sufficient for frontend React Query cache invalidation.
 - [x] Task status change to `failed` triggers WebSocket broadcast
 - [x] Task retry (failed → processing) triggers WebSocket broadcast
 - [x] Task dead lettering triggers WebSocket broadcast
-- [ ] Manual retry action triggers WebSocket broadcast
-- [ ] Manual resurrect action triggers WebSocket broadcast
+- [x] Manual retry action triggers WebSocket broadcast
+- [x] Manual resurrect action triggers WebSocket broadcast
 - [ ] Frontend receives all broadcasts and updates UI without refresh
 - [ ] Multiple concurrent task updates all broadcast successfully
 
@@ -149,14 +149,12 @@ This is sufficient for frontend React Query cache invalidation.
 5. ✅ Add `wsHub.BroadcastTaskUpdated()` call after `task.MarkAsFailed()`
 6. ✅ Add `wsHub.BroadcastTaskUpdated()` call after `task.MarkAsDeadLettered()`
 
-### Phase 2: Manual Action Broadcasting
+### Phase 2: Manual Action Broadcasting ✅ COMPLETED
 
-**Files:** `internal/usecase/task_service.go`
+**Files:** `internal/handler/handler.go`
 
-1. [ ] Add `wsHub *websocket.Hub` field to `TaskService` struct
-2. [ ] Inject wsHub in `NewTaskService()` initialization
-3. [ ] Add broadcast call in `RetryTask()` method after status update
-4. [ ] Add broadcast call in `ResurrectTask()` method after status update
+1. ✅ Add broadcast call in `RetryTask()` handler after status update
+2. ✅ Add broadcast call in `ResurrectTask()` handler after status update
 
 ### Phase 3: Testing & Validation
 

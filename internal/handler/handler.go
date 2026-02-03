@@ -338,6 +338,11 @@ func (h *Handler) RetryTask(c *gin.Context) {
 		return
 	}
 
+	// Broadcast status change to WebSocket clients
+	if h.wsHub != nil {
+		h.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
+	}
+
 	// If immediate execution, submit to worker pool
 	if task.ShouldExecuteNow() {
 		h.scheduler.SubmitTaskImmediately(task)
@@ -444,6 +449,11 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 			Message: "Failed to resurrect task",
 		})
 		return
+	}
+
+	// Broadcast status change to WebSocket clients
+	if h.wsHub != nil {
+		h.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
 	}
 
 	// If immediate execution, submit to worker pool
