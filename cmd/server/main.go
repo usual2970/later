@@ -11,7 +11,7 @@ import (
 	"later/configs"
 	"later/internal/server"
 	"later/internal/handler"
-	"later/internal/repository/postgres"
+	"later/internal/repository/mysql"
 	"later/internal/usecase"
 	"later/internal/infrastructure/circuitbreaker"
 	"later/internal/infrastructure/logger"
@@ -35,19 +35,19 @@ func main() {
 	}
 
 	// Initialize database
-	db, err := postgres.NewConnection(cfg.Database.URL)
+	db, err := mysql.NewConnection(&cfg.Database)
 	if err != nil {
 		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
-	defer postgres.Close(db)
+	defer mysql.Close(db)
 
 	// Run migrations
-	if err := postgres.RunMigrations(db, "migrations"); err != nil {
+	if err := mysql.RunMigrations(db, "migrations"); err != nil {
 		log.Fatal("Failed to run migrations", zap.Error(err))
 	}
 
 	// Initialize repositories
-	taskRepo := postgres.NewTaskRepository(db)
+	taskRepo := mysql.NewTaskRepository(db)
 
 	// Initialize circuit breaker
 	cb := circuitbreaker.NewCircuitBreaker(

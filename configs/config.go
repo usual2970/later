@@ -29,8 +29,13 @@ func (s ServerConfig) Address() string {
 }
 
 type DatabaseConfig struct {
-	URL            string `mapstructure:"url"`
-	MaxConnections int    `mapstructure:"max_connections"`
+	URL              string        `mapstructure:"url"`
+	MaxConnections   int           `mapstructure:"max_connections"`
+	MaxOpenConns     int           `mapstructure:"max_open_conns"`
+	MaxIdleConns     int           `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime  time.Duration `mapstructure:"conn_max_lifetime"`
+	ConnMaxIdleTime  time.Duration `mapstructure:"conn_max_idle_time"`
+	Timezone         string        `mapstructure:"timezone"`
 }
 
 type SchedulerConfig struct {
@@ -203,9 +208,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
 
-	// Database defaults
-	v.SetDefault("database.url", "postgres://later:later@localhost:5432/later?sslmode=disable")
+	// Database defaults (MySQL)
+	v.SetDefault("database.url", "mysql://later:later@localhost:3306/later?parseTime=true&loc=UTC&charset=utf8mb4")
 	v.SetDefault("database.max_connections", 100)
+	v.SetDefault("database.max_open_conns", 100)
+	v.SetDefault("database.max_idle_conns", 20)
+	v.SetDefault("database.conn_max_lifetime", "1h")
+	v.SetDefault("database.conn_max_idle_time", "10m")
+	v.SetDefault("database.timezone", "UTC")
 
 	// Scheduler defaults (as strings, will be parsed later)
 	v.SetDefault("scheduler.high_priority_interval", "2s")

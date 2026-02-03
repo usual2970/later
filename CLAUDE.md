@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**Later** is an asynchronous task scheduling service with HTTP callback delivery, built with Go and PostgreSQL. It provides a simple HTTP API for task submission without requiring external message queue infrastructure.
+**Later** is an asynchronous task scheduling service with HTTP callback delivery, built with Go and MySQL. It provides a simple HTTP API for task submission without requiring external message queue infrastructure.
 
 ## Development Commands
 
@@ -40,7 +40,10 @@ golangci-lint run ./...
 # Run database migrations
 make migrate
 # or
-psql -h localhost -U later -d later -f migrations/001_init_schema.up.sql
+mysql -h localhost -u later -p later < migrations/001_init_schema_mysql.up.sql
+
+# Connect to MySQL database
+mysql -h localhost -u later -p later
 ```
 
 ### Dashboard (React + TypeScript)
@@ -74,8 +77,8 @@ The codebase follows **go-clean-arch** principles with clear layer separation:
    - `models/task.go` - Task entity with business logic (state transitions, retry calculation)
    - `repositories/task_repository.go` - Repository interface
 
-2. **Repository Layer** (`internal/repository/postgres/`)
-   - PostgreSQL implementation using pgx/v5
+2. **Repository Layer** (`internal/repository/mysql/`)
+   - MySQL implementation using go-sql-driver/mysql and sqlx
    - Connection pooling and context management
 
 3. **Use Case Layer** (`internal/usecase/`)
@@ -122,7 +125,7 @@ pending → processing → completed
 
 ### Task Model (internal/domain/models/task.go)
 
-- **JSONBytes**: Custom type for PostgreSQL JSONB with `Scan/Value` methods
+- **JSONBytes**: Custom type for MySQL JSON with `Scan/Value` methods
 - **State transitions**: `MarkAsProcessing()`, `MarkAsCompleted()`, `MarkAsFailed()`, `MarkAsDeadLettered()`
 - **Exponential backoff**: `CalculateNextRetry()` with jitter (±25%)
 - **Priority classification**: `IsHighPriority()` returns true if priority > 5
@@ -141,21 +144,25 @@ pending → processing → completed
   - 5xx/429 → Retry (exponential backoff)
   - 4xx → Permanent failure
 
-### Database Schema (migrations/001_init_schema.up.sql)
+### Database Schema (migrations/001_init_schema_mysql.up.sql)
 
-- `task_queue` table with JSONB payload
-- Partial indexes on `(status, scheduled_at, priority)` for active queries
+- `task_queue` table with JSON payload
+- Indexes on `(status, scheduled_at, priority)` for active queries
 - `next_retry_at` index for retry scheduling
-- GIN index on `tags` array
+- Tags stored as JSON array (MySQL 8.0+)
 
 ## Environment Configuration
 
 Key environment variables (see `configs/config.go`):
 
 ```bash
-# Database
-DATABASE_URL=postgres://later:password@localhost:5432/later?sslmode=disable
+# Database (MySQL)
+DATABASE_URL=mysql://later:password@localhost:3306/later?parseTime=true&loc=UTC&charset=utf8mb4
 DATABASE_MAX_CONNECTIONS=100
+DATABASE_MAX_OPEN_CONNS=100
+DATABASE_MAX_IDLE_CONNS=20
+DATABASE_CONN_MAX_LIFETIME=1h
+DATABASE_CONN_MAX_IDLE_TIME=10m
 
 # Server
 SERVER_HOST=0.0.0.0
