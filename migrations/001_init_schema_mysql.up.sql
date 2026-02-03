@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS task_queue (
     CHECK (retry_count <= max_retries)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Asynchronous task queue with HTTP callback support';
 
--- Performance indexes (partial indexes become full indexes in MySQL)
+-- Performance indexes
 CREATE INDEX idx_tasks_status_scheduled_priority
 ON task_queue(status, scheduled_at, priority DESC);
 

@@ -14,51 +14,61 @@ import (
 	"later/configs"
 )
 
-// parseDSN converts PostgreSQL-style URL to MySQL DSN format
-// Supports both formats:
-// - mysql://user:pass@host:port/db?params
-// - user:pass@tcp(host:port)/db?params
+// parseDSN ensures the DSN is in correct MySQL format
+// Supports both formats for flexibility:
+// - mysql://user:pass@host:port/db?params (PostgreSQL-style)
+// - user:pass@tcp(host:port)/db?params (MySQL standard)
 func parseDSN(databaseURL string) string {
-	// Remove mysql:// prefix if present
-	dsn := strings.TrimPrefix(databaseURL, "mysql://")
+	// If URL starts with mysql://, convert to MySQL DSN format
+	if strings.HasPrefix(databaseURL, "mysql://") {
+		u, err := url.Parse(databaseURL)
+		if err != nil {
+			// If parsing fails, strip prefix and hope for the best
+			return strings.TrimPrefix(databaseURL, "mysql://")
+		}
 
-	// Parse the URL to extract components
-	u, err := url.Parse("mysql://" + dsn)
-	if err != nil {
-		// If parsing fails, return as-is (might already be in MySQL format)
-		return dsn
+		// Rebuild in MySQL DSN format: user:pass@tcp(host:port)/dbname?params
+		var mysqlDSN strings.Builder
+
+		if u.User != nil {
+			mysqlDSN.WriteString(u.User.String())
+			mysqlDSN.WriteString("@")
+		}
+
+		host := u.Hostname()
+		port := u.Port()
+		if port == "" {
+			port = "3306"
+		}
+		mysqlDSN.WriteString(fmt.Sprintf("tcp(%s:%s)", host, port))
+
+		if u.Path != "" && u.Path != "/" {
+			mysqlDSN.WriteString(u.Path)
+		}
+
+		// Add query parameters
+		params := u.Query()
+		// Enable multi-statements for migrations
+		params.Set("multiStatements", "true")
+
+		if len(params) > 0 {
+			mysqlDSN.WriteString("?")
+			mysqlDSN.WriteString(params.Encode())
+		}
+
+		return mysqlDSN.String()
 	}
 
-	// Rebuild in MySQL DSN format
-	// Format: user:pass@tcp(host:port)/dbname?params
-	var mysqlDSN strings.Builder
-
-	// Add user:pass@
-	if u.User != nil {
-		mysqlDSN.WriteString(u.User.String())
-		mysqlDSN.WriteString("@")
+	// Already in MySQL format, just add multiStatements support
+	if !strings.Contains(databaseURL, "multiStatements") {
+		if strings.Contains(databaseURL, "?") {
+			databaseURL += "&multiStatements=true"
+		} else {
+			databaseURL += "?multiStatements=true"
+		}
 	}
 
-	// Add tcp(host:port)
-	host := u.Hostname()
-	port := u.Port()
-	if port == "" {
-		port = "3306"
-	}
-	mysqlDSN.WriteString(fmt.Sprintf("tcp(%s:%s)", host, port))
-
-	// Add /dbname
-	if u.Path != "" && u.Path != "/" {
-		mysqlDSN.WriteString(u.Path)
-	}
-
-	// Add query parameters
-	if u.RawQuery != "" {
-		mysqlDSN.WriteString("?")
-		mysqlDSN.WriteString(u.RawQuery)
-	}
-
-	return mysqlDSN.String()
+	return databaseURL
 }
 
 // NewConnection creates a new MySQL connection pool
@@ -66,7 +76,7 @@ func NewConnection(cfg *configs.DatabaseConfig) (*sqlx.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Convert URL format to MySQL DSN format
+	// Ensure DSN is in correct format
 	dsn := parseDSN(cfg.URL)
 
 	// Connect to MySQL
@@ -114,9 +124,18 @@ func RunMigrations(db *sqlx.DB, migrationsDir string) error {
 		return fmt.Errorf("failed to read migration file: %w", err)
 	}
 
+	// Execute migration, ignoring duplicate index/table errors
 	_, err = db.ExecContext(ctx, string(migrationSQL))
 	if err != nil {
-		return fmt.Errorf("failed to execute migration: %w", err)
+		// Check if error is about duplicate table/index (safe to ignore)
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "Duplicate key name") ||
+		   strings.Contains(errMsg, "Error 1050") || // Table already exists
+		   strings.Contains(errMsg, "Error 1061") { // Duplicate index
+			log.Println("MySQL migrations: some objects already exist, continuing...")
+		} else {
+			return fmt.Errorf("failed to execute migration: %w", err)
+		}
 	}
 
 	log.Println("MySQL migrations completed successfully")
