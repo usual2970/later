@@ -52,6 +52,10 @@ type Task struct {
 	Tags          []string `json:"tags,omitempty" db:"tags"`
 	ErrorMessage  *string  `json:"error_message,omitempty" db:"error_message"`
 	WorkerID      string   `json:"worker_id,omitempty" db:"worker_id"`
+
+	// Soft delete
+	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+	DeletedBy string     `json:"deleted_by,omitempty" db:"deleted_by"`
 }
 
 // JSONBytes is a custom type for handling JSONB in PostgreSQL
@@ -163,4 +167,16 @@ func (t *Task) MarkAsDeadLettered() {
 // IsHighPriority returns true if task priority is greater than 5
 func (t *Task) IsHighPriority() bool {
 	return t.Priority > 5
+}
+
+// CanBeDeleted returns true if the task can be soft deleted
+// Only pending and failed tasks can be deleted
+func (t *Task) CanBeDeleted() bool {
+	return (t.Status == TaskStatusPending || t.Status == TaskStatusFailed) &&
+		t.DeletedAt == nil
+}
+
+// IsDeleted returns true if the task has been soft deleted
+func (t *Task) IsDeleted() bool {
+	return t.DeletedAt != nil
 }

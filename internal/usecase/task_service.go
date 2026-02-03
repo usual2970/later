@@ -51,11 +51,22 @@ func (s *TaskService) GetTask(ctx context.Context, id string) (*models.Task, err
 	return task, nil
 }
 
-// DeleteTask deletes a task by ID
-func (s *TaskService) DeleteTask(ctx context.Context, id string) error {
-	// For MVP, just return success
-	// In production, would mark as cancelled
-	return nil
+// DeleteTask soft deletes a task by ID
+// Only pending and failed tasks can be deleted
+func (s *TaskService) DeleteTask(ctx context.Context, id string, deletedBy string) error {
+	// Get the task first
+	task, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return ErrTaskNotFound
+	}
+
+	// Validate task can be deleted
+	if !task.CanBeDeleted() {
+		return errors.New("task cannot be deleted: invalid status or already deleted")
+	}
+
+	// Perform soft delete
+	return s.repo.SoftDelete(ctx, id, deletedBy)
 }
 
 // UpdateTask updates a task

@@ -22,6 +22,8 @@ type TaskRepository interface {
 
 	Update(ctx context.Context, task *models.Task) error
 
+	SoftDelete(ctx context.Context, taskID string, deletedBy string) error
+
 	List(ctx context.Context, filter TaskFilter) ([]*models.Task, int64, error)
 
 	CountByStatus(ctx context.Context) (map[models.TaskStatus]int64, error)

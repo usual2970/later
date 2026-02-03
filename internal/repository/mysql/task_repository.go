@@ -51,9 +51,10 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 			   created_at, scheduled_at, started_at, completed_at,
 			   max_retries, retry_count, retry_backoff_seconds, next_retry_at,
 			   callback_attempts, callback_timeout_seconds, last_callback_at,
-			   last_callback_status, last_callback_error, priority, tags, error_message
+			   last_callback_status, last_callback_error, priority, tags, error_message,
+			   deleted_at, deleted_by
 		FROM task_queue
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 
 	var task models.Task
@@ -64,6 +65,7 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 		&task.MaxRetries, &task.RetryCount, &task.RetryBackoffSeconds, &task.NextRetryAt,
 		&task.CallbackAttempts, &task.CallbackTimeoutSecs, &task.LastCallbackAt,
 		&task.LastCallbackStatus, &task.LastCallbackError, &task.Priority, &tagsJSON, &task.ErrorMessage,
+		&task.DeletedAt, &task.DeletedBy,
 	)
 	if err != nil {
 		return nil, err
@@ -85,10 +87,12 @@ func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limi
 			   created_at, scheduled_at, started_at, completed_at,
 			   max_retries, retry_count, retry_backoff_seconds, next_retry_at,
 			   callback_attempts, callback_timeout_seconds, last_callback_at,
-			   last_callback_status, last_callback_error, priority, tags, error_message
+			   last_callback_status, last_callback_error, priority, tags, error_message,
+			   deleted_at, deleted_by
 		FROM task_queue
 		WHERE status = 'pending'
 		  AND scheduled_at <= UTC_TIMESTAMP()
+		  AND deleted_at IS NULL
 		  AND (? = -1 OR priority > ?)
 		ORDER BY priority DESC, scheduled_at ASC
 		LIMIT ?
@@ -111,6 +115,7 @@ func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limi
 			&task.MaxRetries, &task.RetryCount, &task.RetryBackoffSeconds, &task.NextRetryAt,
 			&task.CallbackAttempts, &task.CallbackTimeoutSecs, &task.LastCallbackAt,
 			&task.LastCallbackStatus, &task.LastCallbackError, &task.Priority, &tagsJSON, &task.ErrorMessage,
+			&task.DeletedAt, &task.DeletedBy,
 		)
 		if err != nil {
 			return nil, err
@@ -139,10 +144,12 @@ func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*mod
 			   created_at, scheduled_at, started_at, completed_at,
 			   max_retries, retry_count, retry_backoff_seconds, next_retry_at,
 			   callback_attempts, callback_timeout_seconds, last_callback_at,
-			   last_callback_status, last_callback_error, priority, tags, error_message
+			   last_callback_status, last_callback_error, priority, tags, error_message,
+			   deleted_at, deleted_by
 		FROM task_queue
 		WHERE status = 'failed'
 		  AND next_retry_at <= UTC_TIMESTAMP()
+		  AND deleted_at IS NULL
 		ORDER BY next_retry_at ASC
 		LIMIT ?
 	`
@@ -163,6 +170,7 @@ func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*mod
 			&task.MaxRetries, &task.RetryCount, &task.RetryBackoffSeconds, &task.NextRetryAt,
 			&task.CallbackAttempts, &task.CallbackTimeoutSecs, &task.LastCallbackAt,
 			&task.LastCallbackStatus, &task.LastCallbackError, &task.Priority, &tagsJSON, &task.ErrorMessage,
+			&task.DeletedAt, &task.DeletedBy,
 		)
 		if err != nil {
 			return nil, err
@@ -209,8 +217,34 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 	return err
 }
 
+func (r *taskRepository) SoftDelete(ctx context.Context, taskID string, deletedBy string) error {
+	query := `
+		UPDATE task_queue
+		SET deleted_at = UTC_TIMESTAMP(), deleted_by = ?
+		WHERE id = ? AND deleted_at IS NULL
+	`
+
+	result, err := r.db.ExecContext(ctx, query, deletedBy, taskID)
+	if err != nil {
+		return err
+	}
+
+	// Check if a row was actually updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		// Task either doesn't exist or is already deleted
+		return fmt.Errorf("task not found or already deleted")
+	}
+
+	return nil
+}
+
 func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilter) ([]*models.Task, int64, error) {
-	whereClause := "WHERE 1=1"
+	whereClause := "WHERE deleted_at IS NULL"
 	args := []interface{}{}
 
 	if filter.Status != nil {
@@ -264,7 +298,8 @@ func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilte
 			   created_at, scheduled_at, started_at, completed_at,
 			   max_retries, retry_count, retry_backoff_seconds, next_retry_at,
 			   callback_attempts, callback_timeout_seconds, last_callback_at,
-			   last_callback_status, last_callback_error, priority, tags, error_message
+			   last_callback_status, last_callback_error, priority, tags, error_message,
+			   deleted_at, deleted_by
 		FROM task_queue
 	` + whereClause
 
@@ -284,6 +319,7 @@ func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilte
 			&task.MaxRetries, &task.RetryCount, &task.RetryBackoffSeconds, &task.NextRetryAt,
 			&task.CallbackAttempts, &task.CallbackTimeoutSecs, &task.LastCallbackAt,
 			&task.LastCallbackStatus, &task.LastCallbackError, &task.Priority, &tagsJSON, &task.ErrorMessage,
+			&task.DeletedAt, &task.DeletedBy,
 		)
 		if err != nil {
 			return nil, 0, err

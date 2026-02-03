@@ -271,24 +271,42 @@ func (h *Handler) CancelTask(c *gin.Context) {
 		return
 	}
 
-	// Can only cancel pending tasks
-	if task.Status != models.TaskStatusPending {
+	// Validate task can be deleted (only pending or failed tasks)
+	if !task.CanBeDeleted() {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: "invalid_status",
-			Message: "Can only cancel pending tasks",
+			Message: "Can only delete pending or failed tasks",
 		})
 		return
 	}
 
-	// TODO: Mark task as cancelled
-	// For now, just delete it
-	if err := h.taskService.DeleteTask(ctx, id); err != nil {
-		log.Printf("Failed to cancel task: %v", err)
+	// Get deleted_by from context or use a default identifier
+	// In a real application, this would come from authentication
+	deletedBy := "system"
+	if userID := c.GetHeader("X-User-ID"); userID != "" {
+		deletedBy = userID
+	}
+
+	// Perform soft delete
+	if err := h.taskService.DeleteTask(ctx, id, deletedBy); err != nil {
+		log.Printf("Failed to delete task: %v", err)
+		if err.Error() == "task cannot be deleted: invalid status or already deleted" {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+				Error: "invalid_status",
+				Message: err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: "internal_error",
-			Message: "Failed to cancel task",
+			Message: "Failed to delete task",
 		})
 		return
+	}
+
+	// Broadcast WebSocket event
+	if h.wsHub != nil {
+		h.wsHub.BroadcastTaskDeleted(id)
 	}
 
 	c.JSON(http.StatusNoContent, nil)

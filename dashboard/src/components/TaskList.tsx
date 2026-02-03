@@ -11,6 +11,14 @@ import { StatusBadge } from './StatusBadge';
 import { useTasks, useCancelTask, useRetryTask, useResurrectTask } from '../hooks/useTasks';
 import { useState } from 'react';
 import { TaskDetail } from './TaskDetail';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import type { TaskListParams, TaskStatus, Task } from '../lib/api';
 
 export function TaskList() {
@@ -22,15 +30,24 @@ export function TaskList() {
   });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const { data, isLoading } = useTasks(params);
   const cancelTask = useCancelTask();
   const retryTask = useRetryTask();
   const resurrectTask = useResurrectTask();
 
-  const handleCancel = (id: string) => {
-    if (window.confirm('Are you sure you want to cancel this task?')) {
-      cancelTask.mutate(id);
+  const handleDeleteClick = (task: Task) => {
+    setTaskToDelete(task);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (taskToDelete) {
+      cancelTask.mutate(taskToDelete.id);
+      setDeleteDialogOpen(false);
+      setTaskToDelete(null);
     }
   };
 
@@ -149,14 +166,14 @@ export function TaskList() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {task.status === 'pending' && (
+                      {(task.status === 'pending' || task.status === 'failed') && (
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => handleCancel(task.id)}
+                          onClick={() => handleDeleteClick(task)}
                           disabled={cancelTask.isPending}
                         >
-                          Cancel
+                          Delete
                         </Button>
                       )}
                       {task.status === 'failed' && (
@@ -223,6 +240,36 @@ export function TaskList() {
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete task "{taskToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setTaskToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={cancelTask.isPending}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
