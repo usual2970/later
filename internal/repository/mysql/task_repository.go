@@ -88,7 +88,7 @@ func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limi
 			   last_callback_status, last_callback_error, priority, tags, error_message
 		FROM task_queue
 		WHERE status = 'pending'
-		  AND scheduled_at <= NOW()
+		  AND scheduled_at <= UTC_TIMESTAMP()
 		  AND (? = -1 OR priority > ?)
 		ORDER BY priority DESC, scheduled_at ASC
 		LIMIT ?
@@ -142,7 +142,7 @@ func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*mod
 			   last_callback_status, last_callback_error, priority, tags, error_message
 		FROM task_queue
 		WHERE status = 'failed'
-		  AND next_retry_at <= NOW()
+		  AND next_retry_at <= UTC_TIMESTAMP()
 		ORDER BY next_retry_at ASC
 		LIMIT ?
 	`
@@ -341,7 +341,7 @@ func (r *taskRepository) CleanupExpiredData(ctx context.Context) (int64, error) 
 			INNER JOIN (
 				SELECT id FROM task_queue
 				WHERE status IN ('completed', 'dead_lettered')
-				  AND completed_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+				  AND completed_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
 				LIMIT ?
 			) AS tmp ON tq.id = tmp.id
 		`
