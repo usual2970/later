@@ -48,6 +48,28 @@ func NewServer(cfg configs.ServerConfig, h *handler.Handler) *Server {
 	return s
 }
 
+// NewServerWithHub creates a new HTTP server with a pre-existing WebSocket hub
+func NewServerWithHub(cfg configs.ServerConfig, h *handler.Handler, wsHub *websocket.Hub) *Server {
+	engine := gin.New()
+
+	// Add middleware
+	engine.Use(middleware.Logger())
+	engine.Use(middleware.Recovery())
+	engine.Use(middleware.CORS())
+
+	s := &Server{
+		engine: engine,
+		config: cfg,
+		handler: h,
+		wsHub:   wsHub,
+	}
+
+	// Register routes
+	s.registerRoutes(engine, h, wsHub)
+
+	return s
+}
+
 // registerRoutes sets up all API routes
 func (s *Server) registerRoutes(engine *gin.Engine, h *handler.Handler, wsHub *websocket.Hub) {
 	// Health check
@@ -87,7 +109,7 @@ func (s *Server) ListenAndServe() error {
 		Handler: s.engine,
 	}
 
-	log.Printf("Starting HTTP server on %s", s.config.Address)
+	log.Printf("Starting HTTP server on %s", s.config.Address())
 	return s.httpServer.ListenAndServe()
 }
 

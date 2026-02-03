@@ -15,6 +15,7 @@ import (
 	"later/internal/usecase"
 	"later/internal/infrastructure/circuitbreaker"
 	"later/internal/infrastructure/logger"
+	"later/internal/websocket"
 
 	"go.uber.org/zap"
 )
@@ -63,14 +64,19 @@ func main() {
 		logger.Named("callback"),
 	)
 
+	// Initialize WebSocket hub first (needed by worker pool)
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
 	// Initialize use cases
 	taskService := usecase.NewTaskService(taskRepo)
 
-	// Initialize worker pool
+	// Initialize worker pool with wsHub
 	workerPool := usecase.NewWorkerPool(
 		cfg.Worker.PoolSize,
 		taskService,
 		callbackService,
+		wsHub,
 		logger.Named("worker"),
 	)
 	workerPool.Start(cfg.Worker.PoolSize)
@@ -83,15 +89,11 @@ func main() {
 	}
 	scheduler := usecase.NewScheduler(taskRepo, workerPool, schedulerCfg)
 
-	// Initialize HTTP handler (without wsHub initially)
-	h := handler.NewHandler(taskService, scheduler, nil)
+	// Initialize HTTP handler with wsHub
+	h := handler.NewHandler(taskService, scheduler, wsHub)
 
-	// Start HTTP server (includes WebSocket hub)
-	srv := server.NewServer(cfg.Server, h)
-	wsHub := srv.GetWSHub()
-
-	// Update handler with wsHub
-	srv.SetWSHub(wsHub)
+	// Start HTTP server
+	srv := server.NewServerWithHub(cfg.Server, h, wsHub)
 
 	// Hook WebSocket broadcasts into task service lifecycle
 	// This broadcasts events when tasks are created, updated, or deleted
