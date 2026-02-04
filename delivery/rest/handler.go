@@ -9,6 +9,7 @@ import (
 	"later/domain"
 	"later/domain/entity"
 	"later/delivery/rest/dto"
+	"later/delivery/rest/response"
 	tasksvc "later/task"
 
 	"github.com/gin-gonic/gin"
@@ -32,19 +33,13 @@ func NewHandler(taskService *tasksvc.Service, scheduler *tasksvc.Scheduler) *Han
 func (h *Handler) CreateTask(c *gin.Context) {
 	var req dto.CreateTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "invalid_request",
-			Message: err.Error(),
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// Validate request
 	if err := req.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "validation_error",
-			Message: err.Error(),
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "validation_error", err.Error())
 		return
 	}
 
@@ -54,11 +49,7 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	// Save to database
 	ctx := c.Request.Context()
 	if err := h.taskService.CreateTask(ctx, task); err != nil {
-		log.Printf("Failed to create task: %v", err)
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to create task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to create task")
 		return
 	}
 
@@ -79,7 +70,7 @@ func (h *Handler) CreateTask(c *gin.Context) {
 		payload = json.RawMessage(task.Payload)
 	}
 
-	response := dto.TaskResponse{
+	taskResponse := dto.TaskResponse{
 		ID:                task.ID,
 		Name:              task.Name,
 		Payload:           payload,
@@ -95,36 +86,27 @@ func (h *Handler) CreateTask(c *gin.Context) {
 		EstimatedExecution: estimatedExec,
 	}
 
-	c.JSON(http.StatusAccepted, response)
+	response.Accepted(c, taskResponse)
 }
 
 // ListTasks handles GET /api/v1/tasks
 func (h *Handler) ListTasks(c *gin.Context) {
 	var query dto.ListTasksQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "invalid_query",
-			Message: err.Error(),
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_query", err.Error())
 		return
 	}
 
 	// Validate and normalize
 	if err := query.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "validation_error",
-			Message: err.Error(),
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "validation_error", err.Error())
 		return
 	}
 
 	// Convert to repository filter
 	filter, err := query.ToRepositoryFilter()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "invalid_filter",
-			Message: err.Error(),
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_filter", err.Error())
 		return
 	}
 
@@ -136,10 +118,7 @@ func (h *Handler) ListTasks(c *gin.Context) {
 	tasks, total, err := h.taskService.List(ctx, filter)
 	if err != nil {
 		log.Printf("[ListTasks] Failed to list tasks: %v", err)
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to list tasks",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to list tasks")
 		return
 	}
 
@@ -179,7 +158,7 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		totalPages++
 	}
 
-	response := dto.TaskListResponse{
+	listResponse := dto.TaskListResponse{
 		Tasks: taskResponses,
 		Pagination: dto.PaginationInfo{
 			Page:       query.Page,
@@ -189,7 +168,7 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		},
 	}
 
-	c.JSON(http.StatusOK, response)
+	response.Success(c, listResponse)
 }
 
 // GetTask handles GET /api/v1/tasks/:id
@@ -200,16 +179,10 @@ func (h *Handler) GetTask(c *gin.Context) {
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			c.JSON(http.StatusNotFound, dto.ErrorResponse{
-				Error: "task_not_found",
-				Message: "Task not found",
-			})
+			response.ErrorWithMessage(c, http.StatusNotFound, "task_not_found", "Task not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to get task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to get task")
 		return
 	}
 
@@ -219,7 +192,7 @@ func (h *Handler) GetTask(c *gin.Context) {
 		payload = json.RawMessage(task.Payload)
 	}
 
-	response := dto.TaskResponse{
+	taskResponse := dto.TaskResponse{
 		ID:                task.ID,
 		Name:              task.Name,
 		Payload:           payload,
@@ -237,7 +210,7 @@ func (h *Handler) GetTask(c *gin.Context) {
 		ErrorMessage:     task.ErrorMessage,
 	}
 
-	c.JSON(http.StatusOK, response)
+	response.Success(c, taskResponse)
 }
 
 // CancelTask handles DELETE /api/v1/tasks/:id
@@ -248,25 +221,16 @@ func (h *Handler) CancelTask(c *gin.Context) {
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			c.JSON(http.StatusNotFound, dto.ErrorResponse{
-				Error: "task_not_found",
-				Message: "Task not found",
-			})
+			response.ErrorWithMessage(c, http.StatusNotFound, "task_not_found", "Task not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to get task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to get task")
 		return
 	}
 
 	// Validate task can be deleted (only pending or failed tasks)
 	if !task.CanBeDeleted() {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "invalid_status",
-			Message: "Can only delete pending or failed tasks",
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_status", "Can only delete pending or failed tasks")
 		return
 	}
 
@@ -281,20 +245,14 @@ func (h *Handler) CancelTask(c *gin.Context) {
 	if err := h.taskService.DeleteTask(ctx, id, deletedBy); err != nil {
 		log.Printf("Failed to delete task: %v", err)
 		if err.Error() == "task cannot be deleted: invalid status or already deleted" {
-			c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-				Error: "invalid_status",
-				Message: err.Error(),
-			})
+			response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_status", err.Error())
 			return
 		}
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to delete task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to delete task")
 		return
 	}
 
-	c.JSON(http.StatusNoContent, nil)
+	response.NoContent(c)
 }
 
 // RetryTask handles POST /api/v1/tasks/:id/retry
@@ -305,25 +263,16 @@ func (h *Handler) RetryTask(c *gin.Context) {
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			c.JSON(http.StatusNotFound, dto.ErrorResponse{
-				Error: "task_not_found",
-				Message: "Task not found",
-			})
+			response.ErrorWithMessage(c, http.StatusNotFound, "task_not_found", "Task not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to get task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to get task")
 		return
 	}
 
 	// Can only retry failed tasks
 	if task.Status != entity.TaskStatusFailed {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "invalid_status",
-			Message: "Can only retry failed tasks",
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_status", "Can only retry failed tasks")
 		return
 	}
 
@@ -334,10 +283,7 @@ func (h *Handler) RetryTask(c *gin.Context) {
 
 	if err := h.taskService.UpdateTask(ctx, task); err != nil {
 		log.Printf("Failed to retry task: %v", err)
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to retry task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to retry task")
 		return
 	}
 
@@ -378,10 +324,7 @@ func (h *Handler) GetStats(c *gin.Context) {
 	stats, err := h.taskService.GetStats(ctx)
 	if err != nil {
 		log.Printf("Failed to get stats: %v", err)
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to get statistics",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to get statistics")
 		return
 	}
 
@@ -392,14 +335,14 @@ func (h *Handler) GetStats(c *gin.Context) {
 		Failed:    stats.Last24h.Failed,
 	}
 
-	response := dto.StatsResponse{
+	statsResponse := dto.StatsResponse{
 		Total:                stats.Total,
 		ByStatus:            stats.ByStatus,
 		Last24h:              last24h,
 		CallbackSuccessRate: stats.CallbackSuccessRate,
 	}
 
-	c.JSON(http.StatusOK, response)
+	response.Success(c, statsResponse)
 }
 
 // ResurrectTask handles POST /api/v1/tasks/:id/resurrect
@@ -410,25 +353,16 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			c.JSON(http.StatusNotFound, dto.ErrorResponse{
-				Error: "task_not_found",
-				Message: "Task not found",
-			})
+			response.ErrorWithMessage(c, http.StatusNotFound, "task_not_found", "Task not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to get task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to get task")
 		return
 	}
 
 	// Can only resurrect dead_lettered tasks
 	if task.Status != entity.TaskStatusDeadLettered {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: "invalid_status",
-			Message: "Can only resurrect dead_lettered tasks",
-		})
+		response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_status", "Can only resurrect dead_lettered tasks")
 		return
 	}
 
@@ -442,10 +376,7 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 
 	if err := h.taskService.UpdateTask(ctx, task); err != nil {
 		log.Printf("Failed to resurrect task: %v", err)
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: "internal_error",
-			Message: "Failed to resurrect task",
-		})
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to resurrect task")
 		return
 	}
 
@@ -480,24 +411,3 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 }
 
 // getStatusCode maps domain errors to HTTP status codes
-func getStatusCode(err error) int {
-	if err == nil {
-		return http.StatusOK
-	}
-
-	switch {
-	case errors.Is(err, domain.ErrNotFound):
-		return http.StatusNotFound
-	case errors.Is(err, domain.ErrConflict):
-		return http.StatusConflict
-	case errors.Is(err, domain.ErrBadParamInput):
-		return http.StatusBadRequest
-	case errors.Is(err, domain.ErrTaskCannotDelete):
-		return http.StatusBadRequest
-	case errors.Is(err, domain.ErrTaskCannotRetry):
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
-}
-
