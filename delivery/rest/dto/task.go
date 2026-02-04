@@ -64,7 +64,7 @@ func (r *CreateTaskRequest) Validate() error {
 type TaskResponse struct {
 	ID                 string            `json:"id"`
 	Name               string            `json:"name"`
-	Payload            json.RawMessage   `json:"payload"`
+	Payload            string            `json:"payload"`      // Changed from json.RawMessage
 	CallbackURL        string            `json:"callback_url"`
 	Status             entity.TaskStatus `json:"status"`
 	CreatedAt          time.Time         `json:"created_at"`

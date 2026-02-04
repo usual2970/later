@@ -65,15 +65,16 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	}
 
 	// Convert JSONBytes to json.RawMessage for response
-	var payload json.RawMessage
-	if len(task.Payload) > 0 {
-		payload = json.RawMessage(task.Payload)
+	// Convert JSONBytes to string for JSON response
+	var payloadStr string
+	if len(task.Payload) > 0 && json.Valid(task.Payload) {
+		payloadStr = string(task.Payload)
 	}
 
 	taskResponse := dto.TaskResponse{
 		ID:                task.ID,
 		Name:              task.Name,
-		Payload:           payload,
+		Payload:           payloadStr,
 		CallbackURL:       task.CallbackURL,
 		Status:            task.Status,
 		CreatedAt:         task.CreatedAt,
@@ -127,16 +128,17 @@ func (h *Handler) ListTasks(c *gin.Context) {
 	// Convert to response format
 	taskResponses := make([]*dto.TaskResponse, len(tasks))
 	for i, task := range tasks {
-		// Convert JSONBytes to json.RawMessage for response
-		var payload json.RawMessage
-		if len(task.Payload) > 0 {
-			payload = json.RawMessage(task.Payload)
+		// Convert JSONBytes to string for JSON response
+		// Don't use json.RawMessage as it can have invalid characters causing marshal errors
+		var payloadStr string
+		if len(task.Payload) > 0 && json.Valid(task.Payload) {
+			payloadStr = string(task.Payload)
 		}
 
 		taskResponses[i] = &dto.TaskResponse{
 			ID:                task.ID,
 			Name:              task.Name,
-			Payload:           payload,
+			Payload:           payloadStr,
 			CallbackURL:       task.CallbackURL,
 			Status:            task.Status,
 			CreatedAt:         task.CreatedAt,
@@ -205,15 +207,16 @@ func (h *Handler) GetTask(c *gin.Context) {
 	}
 
 	// Convert JSONBytes to json.RawMessage for response
-	var payload json.RawMessage
-	if len(task.Payload) > 0 {
-		payload = json.RawMessage(task.Payload)
+	// Convert JSONBytes to string for JSON response
+	var payloadStr string
+	if len(task.Payload) > 0 && json.Valid(task.Payload) {
+		payloadStr = string(task.Payload)
 	}
 
 	taskResponse := dto.TaskResponse{
 		ID:                task.ID,
 		Name:              task.Name,
-		Payload:           payload,
+		Payload:           payloadStr,
 		CallbackURL:       task.CallbackURL,
 		Status:            task.Status,
 		CreatedAt:         task.CreatedAt,
@@ -311,15 +314,16 @@ func (h *Handler) RetryTask(c *gin.Context) {
 	}
 
 	// Convert JSONBytes to json.RawMessage for response
-	var payload json.RawMessage
-	if len(task.Payload) > 0 {
-		payload = json.RawMessage(task.Payload)
+	// Convert JSONBytes to string for JSON response
+	var payloadStr string
+	if len(task.Payload) > 0 && json.Valid(task.Payload) {
+		payloadStr = string(task.Payload)
 	}
 
 	response := dto.TaskResponse{
 		ID:                task.ID,
 		Name:              task.Name,
-		Payload:           payload,
+		Payload:           payloadStr,
 		CallbackURL:       task.CallbackURL,
 		Status:            task.Status,
 		CreatedAt:         task.CreatedAt,
@@ -404,15 +408,16 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 	}
 
 	// Convert JSONBytes to json.RawMessage for response
-	var payload json.RawMessage
-	if len(task.Payload) > 0 {
-		payload = json.RawMessage(task.Payload)
+	// Convert JSONBytes to string for JSON response
+	var payloadStr string
+	if len(task.Payload) > 0 && json.Valid(task.Payload) {
+		payloadStr = string(task.Payload)
 	}
 
 	response := dto.TaskResponse{
 		ID:                task.ID,
 		Name:              task.Name,
-		Payload:           payload,
+		Payload:           payloadStr,
 		CallbackURL:       task.CallbackURL,
 		Status:            task.Status,
 		CreatedAt:         task.CreatedAt,
