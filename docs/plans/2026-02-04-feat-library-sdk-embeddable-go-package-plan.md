@@ -78,7 +78,7 @@ OR (Standalone Mode)
 
 1. **Embedded SDK** (Primary focus)
    ```go
-   import "github.com/yourorg/later/v2/pkg/later"
+   import "github.com/usual2970/later/v2/pkg/later"
 
    // Initialize with shared DB
    later := later.NewEmbedded(
@@ -721,7 +721,7 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/jmoiron/sqlx"
     _ "github.com/go-sql-driver/mysql"
-    "github.com/yourorg/later/v2/pkg/later"
+    "github.com/usual2970/later/v2/pkg/later"
 )
 
 func main() {
