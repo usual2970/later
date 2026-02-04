@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"time"
 
 	"later/domain/entity"
 	"later/domain/repository"
@@ -244,6 +246,7 @@ func (r *taskRepository) SoftDelete(ctx context.Context, taskID string, deletedB
 }
 
 func (r *taskRepository) List(ctx context.Context, filter repository.TaskFilter) ([]*entity.Task, int64, error) {
+	startTime := time.Now()
 	whereClause := "WHERE deleted_at IS NULL"
 	args := []interface{}{}
 
@@ -305,6 +308,7 @@ func (r *taskRepository) List(ctx context.Context, filter repository.TaskFilter)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
+		log.Printf("[List] Query failed: %v", err)
 		return nil, 0, err
 	}
 	defer rows.Close()
@@ -334,6 +338,9 @@ func (r *taskRepository) List(ctx context.Context, filter repository.TaskFilter)
 
 		tasks = append(tasks, &task)
 	}
+
+	duration := time.Since(startTime)
+	log.Printf("[List] Query completed: fetched %d tasks (total: %d) in %v", len(tasks), total, duration)
 
 	return tasks, total, rows.Err()
 }

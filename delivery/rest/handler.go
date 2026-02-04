@@ -128,17 +128,22 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		return
 	}
 
+	log.Printf("[ListTasks] Fetching tasks with filter: page=%d, limit=%d, status=%v, sort=%s %s",
+		query.Page, query.Limit, query.Status, query.SortBy, query.SortOrder)
+
 	// Fetch tasks
 	ctx := c.Request.Context()
 	tasks, total, err := h.taskService.List(ctx, filter)
 	if err != nil {
-		log.Printf("Failed to list tasks: %v", err)
+		log.Printf("[ListTasks] Failed to list tasks: %v", err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: "internal_error",
 			Message: "Failed to list tasks",
 		})
 		return
 	}
+
+	log.Printf("[ListTasks] Successfully fetched %d tasks (total: %d)", len(tasks), total)
 
 	// Convert to response format
 	taskResponses := make([]*dto.TaskResponse, len(tasks))
