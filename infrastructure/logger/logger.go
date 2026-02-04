@@ -251,3 +251,30 @@ func DPanic(msg string, fields ...zap.Field) {
 func Panic(msg string, fields ...zap.Field) {
 	Get().Panic(msg, fields...)
 }
+
+// Field helpers - wrappers around zap.Field constructors
+
+// String constructs a string field
+func String(key, val string) zap.Field {
+	return zap.String(key, val)
+}
+
+// Int constructs an int field
+func Int(key string, val int) zap.Field {
+	return zap.Int(key, val)
+}
+
+// Int64 constructs an int64 field
+func Int64(key string, val int64) zap.Field {
+	return zap.Int64(key, val)
+}
+
+// Any constructs an arbitrary field
+func Any(key string, val interface{}) zap.Field {
+	return zap.Any(key, val)
+}
+
+// Err constructs an error field
+func Err(err error) zap.Field {
+	return zap.Error(err)
+}

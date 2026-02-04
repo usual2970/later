@@ -3,13 +3,13 @@ package rest
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 
 	"later/domain"
-	"later/domain/entity"
 	"later/delivery/rest/dto"
 	"later/delivery/rest/response"
+	"later/domain/entity"
+	"later/infrastructure/logger"
 	tasksvc "later/task"
 
 	"github.com/gin-gonic/gin"
@@ -72,18 +72,18 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	}
 
 	taskResponse := dto.TaskResponse{
-		ID:                task.ID,
-		Name:              task.Name,
-		Payload:           payloadStr,
-		CallbackURL:       task.CallbackURL,
-		Status:            task.Status,
-		CreatedAt:         task.CreatedAt,
-		ScheduledFor:      task.ScheduledAt,
-		MaxRetries:       task.MaxRetries,
-		RetryCount:       task.RetryCount,
-		CallbackAttempts: task.CallbackAttempts,
-		Priority:         task.Priority,
-		Tags:             task.Tags,
+		ID:                 task.ID,
+		Name:               task.Name,
+		Payload:            payloadStr,
+		CallbackURL:        task.CallbackURL,
+		Status:             task.Status,
+		CreatedAt:          task.CreatedAt,
+		ScheduledFor:       task.ScheduledAt,
+		MaxRetries:         task.MaxRetries,
+		RetryCount:         task.RetryCount,
+		CallbackAttempts:   task.CallbackAttempts,
+		Priority:           task.Priority,
+		Tags:               task.Tags,
 		EstimatedExecution: estimatedExec,
 	}
 
@@ -111,19 +111,31 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[ListTasks] Fetching tasks with filter: page=%d, limit=%d, status=%v, sort=%s %s",
-		query.Page, query.Limit, query.Status, query.SortBy, query.SortOrder)
+	logger.Info("Fetching tasks with filter",
+		logger.Int("page", query.Page),
+		logger.Int("limit", query.Limit),
+		logger.Any("status", query.Status),
+		logger.String("sort_by", query.SortBy),
+		logger.String("sort_order", query.SortOrder),
+	)
 
 	// Fetch tasks
 	ctx := c.Request.Context()
 	tasks, total, err := h.taskService.List(ctx, filter)
 	if err != nil {
-		log.Printf("[ListTasks] Failed to list tasks: %v", err)
+		logger.Error("Failed to list tasks",
+			logger.String("handler", "ListTasks"),
+			logger.Any("error", err),
+		)
 		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to list tasks")
 		return
 	}
 
-	log.Printf("[ListTasks] Successfully fetched %d tasks (total: %d)", len(tasks), total)
+	logger.Info("Successfully fetched tasks",
+		logger.String("handler", "ListTasks"),
+		logger.Int("count", len(tasks)),
+		logger.Int64("total", total),
+	)
 
 	// Convert to response format
 	taskResponses := make([]*dto.TaskResponse, len(tasks))
@@ -136,15 +148,15 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		}
 
 		taskResponses[i] = &dto.TaskResponse{
-			ID:                task.ID,
-			Name:              task.Name,
-			Payload:           payloadStr,
-			CallbackURL:       task.CallbackURL,
-			Status:            task.Status,
-			CreatedAt:         task.CreatedAt,
-			ScheduledFor:      task.ScheduledAt,
-			StartedAt:         task.StartedAt,
-			CompletedAt:       task.CompletedAt,
+			ID:               task.ID,
+			Name:             task.Name,
+			Payload:          payloadStr,
+			CallbackURL:      task.CallbackURL,
+			Status:           task.Status,
+			CreatedAt:        task.CreatedAt,
+			ScheduledFor:     task.ScheduledAt,
+			StartedAt:        task.StartedAt,
+			CompletedAt:      task.CompletedAt,
 			MaxRetries:       task.MaxRetries,
 			RetryCount:       task.RetryCount,
 			CallbackAttempts: task.CallbackAttempts,
@@ -170,25 +182,14 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		},
 	}
 
-	log.Printf("[ListTasks] About to send response: %d tasks, pagination: page=%d, total=%d",
-		len(listResponse.Tasks), listResponse.Pagination.Page, listResponse.Pagination.Total)
+	logger.Debug("Sending response",
+		logger.String("handler", "ListTasks"),
+		logger.Int("task_count", len(listResponse.Tasks)),
+		logger.Int("page", listResponse.Pagination.Page),
+		logger.Int64("total", listResponse.Pagination.Total),
+	)
 
-	// Debug: Try to serialize manually first
-	jsonData, err := json.Marshal(listResponse)
-	if err != nil {
-		log.Printf("[ERROR] Failed to marshal response: %v", err)
-		response.ErrorWithMessage(c, http.StatusInternalServerError, "marshal_error", err.Error())
-		return
-	}
-	log.Printf("[DEBUG] Serialized response size: %d bytes", len(jsonData))
-	if len(jsonData) > 100 {
-		log.Printf("[DEBUG] First 100 bytes: %s", string(jsonData[:100]))
-	} else {
-		log.Printf("[DEBUG] Full response: %s", string(jsonData))
-	}
-
-	c.JSON(http.StatusOK, listResponse)
-	log.Printf("[ListTasks] c.JSON called")
+	response.Success(c, listResponse)
 }
 
 // GetTask handles GET /api/v1/tasks/:id
@@ -214,15 +215,15 @@ func (h *Handler) GetTask(c *gin.Context) {
 	}
 
 	taskResponse := dto.TaskResponse{
-		ID:                task.ID,
-		Name:              task.Name,
-		Payload:           payloadStr,
-		CallbackURL:       task.CallbackURL,
-		Status:            task.Status,
-		CreatedAt:         task.CreatedAt,
-		ScheduledFor:      task.ScheduledAt,
-		StartedAt:         task.StartedAt,
-		CompletedAt:       task.CompletedAt,
+		ID:               task.ID,
+		Name:             task.Name,
+		Payload:          payloadStr,
+		CallbackURL:      task.CallbackURL,
+		Status:           task.Status,
+		CreatedAt:        task.CreatedAt,
+		ScheduledFor:     task.ScheduledAt,
+		StartedAt:        task.StartedAt,
+		CompletedAt:      task.CompletedAt,
 		MaxRetries:       task.MaxRetries,
 		RetryCount:       task.RetryCount,
 		CallbackAttempts: task.CallbackAttempts,
@@ -264,7 +265,11 @@ func (h *Handler) CancelTask(c *gin.Context) {
 
 	// Perform soft delete
 	if err := h.taskService.DeleteTask(ctx, id, deletedBy); err != nil {
-		log.Printf("Failed to delete task: %v", err)
+		logger.Error("Failed to delete task",
+			logger.String("handler", "CancelTask"),
+			logger.String("task_id", id),
+			logger.Any("error", err),
+		)
 		if err.Error() == "task cannot be deleted: invalid status or already deleted" {
 			response.ErrorWithMessage(c, http.StatusBadRequest, "invalid_status", err.Error())
 			return
@@ -303,7 +308,11 @@ func (h *Handler) RetryTask(c *gin.Context) {
 	task.NextRetryAt = nil
 
 	if err := h.taskService.UpdateTask(ctx, task); err != nil {
-		log.Printf("Failed to retry task: %v", err)
+		logger.Error("Failed to retry task",
+			logger.String("handler", "RetryTask"),
+			logger.String("task_id", id),
+			logger.Any("error", err),
+		)
 		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to retry task")
 		return
 	}
@@ -320,23 +329,23 @@ func (h *Handler) RetryTask(c *gin.Context) {
 		payloadStr = string(task.Payload)
 	}
 
-	response := dto.TaskResponse{
-		ID:                task.ID,
-		Name:              task.Name,
-		Payload:           payloadStr,
-		CallbackURL:       task.CallbackURL,
-		Status:            task.Status,
-		CreatedAt:         task.CreatedAt,
-		ScheduledFor:      task.ScheduledAt,
-		MaxRetries:       task.MaxRetries,
-		RetryCount:       task.RetryCount,
-		CallbackAttempts: task.CallbackAttempts,
-		Priority:         task.Priority,
-		Tags:             task.Tags,
+	taskResp := dto.TaskResponse{
+		ID:                 task.ID,
+		Name:               task.Name,
+		Payload:            payloadStr,
+		CallbackURL:        task.CallbackURL,
+		Status:             task.Status,
+		CreatedAt:          task.CreatedAt,
+		ScheduledFor:       task.ScheduledAt,
+		MaxRetries:         task.MaxRetries,
+		RetryCount:         task.RetryCount,
+		CallbackAttempts:   task.CallbackAttempts,
+		Priority:           task.Priority,
+		Tags:               task.Tags,
 		EstimatedExecution: "immediate",
 	}
 
-	c.JSON(http.StatusAccepted, response)
+	response.Accepted(c, taskResp)
 }
 
 // GetStats handles GET /api/v1/tasks/stats
@@ -345,7 +354,10 @@ func (h *Handler) GetStats(c *gin.Context) {
 
 	stats, err := h.taskService.GetStats(ctx)
 	if err != nil {
-		log.Printf("Failed to get stats: %v", err)
+		logger.Error("Failed to get statistics",
+			logger.String("handler", "GetStats"),
+			logger.Any("error", err),
+		)
 		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to get statistics")
 		return
 	}
@@ -358,9 +370,9 @@ func (h *Handler) GetStats(c *gin.Context) {
 	}
 
 	statsResponse := dto.StatsResponse{
-		Total:                stats.Total,
+		Total:               stats.Total,
 		ByStatus:            stats.ByStatus,
-		Last24h:              last24h,
+		Last24h:             last24h,
 		CallbackSuccessRate: stats.CallbackSuccessRate,
 	}
 
@@ -397,7 +409,11 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 	task.CompletedAt = nil
 
 	if err := h.taskService.UpdateTask(ctx, task); err != nil {
-		log.Printf("Failed to resurrect task: %v", err)
+		logger.Error("Failed to resurrect task",
+			logger.String("handler", "ResurrectTask"),
+			logger.String("task_id", id),
+			logger.Any("error", err),
+		)
 		response.ErrorWithMessage(c, http.StatusInternalServerError, "internal_error", "Failed to resurrect task")
 		return
 	}
@@ -414,23 +430,23 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 		payloadStr = string(task.Payload)
 	}
 
-	response := dto.TaskResponse{
-		ID:                task.ID,
-		Name:              task.Name,
-		Payload:           payloadStr,
-		CallbackURL:       task.CallbackURL,
-		Status:            task.Status,
-		CreatedAt:         task.CreatedAt,
-		ScheduledFor:      task.ScheduledAt,
-		MaxRetries:       task.MaxRetries,
-		RetryCount:       task.RetryCount,
-		CallbackAttempts: task.CallbackAttempts,
-		Priority:         task.Priority,
-		Tags:             task.Tags,
+	taskResp := dto.TaskResponse{
+		ID:                 task.ID,
+		Name:               task.Name,
+		Payload:            payloadStr,
+		CallbackURL:        task.CallbackURL,
+		Status:             task.Status,
+		CreatedAt:          task.CreatedAt,
+		ScheduledFor:       task.ScheduledAt,
+		MaxRetries:         task.MaxRetries,
+		RetryCount:         task.RetryCount,
+		CallbackAttempts:   task.CallbackAttempts,
+		Priority:           task.Priority,
+		Tags:               task.Tags,
 		EstimatedExecution: "immediate",
 	}
 
-	c.JSON(http.StatusAccepted, response)
+	response.Accepted(c, taskResp)
 }
 
 // getStatusCode maps domain errors to HTTP status codes
