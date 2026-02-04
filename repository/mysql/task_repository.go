@@ -341,7 +341,7 @@ func (r *taskRepository) List(ctx context.Context, filter repository.TaskFilter)
 func (r *taskRepository) CountByStatus(ctx context.Context) (map[entity.TaskStatus]int64, error) {
 	query := `
 		SELECT status, COUNT(*) as count
-		FROM task_queue
+		FROM task_queue where deleted_at IS NULL
 		GROUP BY status
 	`
 

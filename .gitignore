@@ -6,6 +6,7 @@
 *.dylib
 bin/
 *.test
+cmd/**/__debug_bin*
 
 # Test binary, built with `go test -c`
 *.out
