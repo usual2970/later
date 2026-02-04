@@ -1,26 +1,28 @@
-package handler
+package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
-	"later/internal/domain/models"
-	"later/internal/dto"
-	"later/internal/usecase"
-	"later/internal/websocket"
+	"later/domain"
+	"later/domain/entity"
+	"later/delivery/rest/dto"
+	tasksvc "later/task"
+	"later/delivery/websocket"
 	"github.com/gin-gonic/gin"
 )
 
 // Handler handles HTTP requests
 type Handler struct {
-	taskService *usecase.TaskService
-	scheduler   *usecase.Scheduler
+	taskService *tasksvc.Service
+	scheduler   *tasksvc.Scheduler
 	wsHub       *websocket.Hub
 }
 
 // NewHandler creates a new HTTP handler
-func NewHandler(taskService *usecase.TaskService, scheduler *usecase.Scheduler, wsHub *websocket.Hub) *Handler {
+func NewHandler(taskService *tasksvc.Service, scheduler *tasksvc.Scheduler, wsHub *websocket.Hub) *Handler {
 	return &Handler{
 		taskService: taskService,
 		scheduler:   scheduler,
@@ -209,7 +211,7 @@ func (h *Handler) GetTask(c *gin.Context) {
 	ctx := c.Request.Context()
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
-		if err == usecase.ErrTaskNotFound {
+		if errors.Is(err, domain.ErrNotFound) {
 			c.JSON(http.StatusNotFound, dto.ErrorResponse{
 				Error: "task_not_found",
 				Message: "Task not found",
@@ -257,7 +259,7 @@ func (h *Handler) CancelTask(c *gin.Context) {
 	ctx := c.Request.Context()
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
-		if err == usecase.ErrTaskNotFound {
+		if errors.Is(err, domain.ErrNotFound) {
 			c.JSON(http.StatusNotFound, dto.ErrorResponse{
 				Error: "task_not_found",
 				Message: "Task not found",
@@ -319,7 +321,7 @@ func (h *Handler) RetryTask(c *gin.Context) {
 	ctx := c.Request.Context()
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
-		if err == usecase.ErrTaskNotFound {
+		if errors.Is(err, domain.ErrNotFound) {
 			c.JSON(http.StatusNotFound, dto.ErrorResponse{
 				Error: "task_not_found",
 				Message: "Task not found",
@@ -334,7 +336,7 @@ func (h *Handler) RetryTask(c *gin.Context) {
 	}
 
 	// Can only retry failed tasks
-	if task.Status != models.TaskStatusFailed {
+	if task.Status != entity.TaskStatusFailed {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: "invalid_status",
 			Message: "Can only retry failed tasks",
@@ -343,7 +345,7 @@ func (h *Handler) RetryTask(c *gin.Context) {
 	}
 
 	// Reset task for retry
-	task.Status = models.TaskStatusPending
+	task.Status = entity.TaskStatusPending
 	task.RetryCount = 0
 	task.NextRetryAt = nil
 
@@ -405,7 +407,7 @@ func (h *Handler) GetStats(c *gin.Context) {
 		return
 	}
 
-	// Convert usecase.Last24hStats to dto.Last24hStats
+	// Convert tasksvc.Last24hStats to dto.Last24hStats
 	last24h := dto.Last24hStats{
 		Submitted: stats.Last24h.Submitted,
 		Completed: stats.Last24h.Completed,
@@ -429,7 +431,7 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 	ctx := c.Request.Context()
 	task, err := h.taskService.GetTask(ctx, id)
 	if err != nil {
-		if err == usecase.ErrTaskNotFound {
+		if errors.Is(err, domain.ErrNotFound) {
 			c.JSON(http.StatusNotFound, dto.ErrorResponse{
 				Error: "task_not_found",
 				Message: "Task not found",
@@ -444,7 +446,7 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 	}
 
 	// Can only resurrect dead_lettered tasks
-	if task.Status != models.TaskStatusDeadLettered {
+	if task.Status != entity.TaskStatusDeadLettered {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: "invalid_status",
 			Message: "Can only resurrect dead_lettered tasks",
@@ -453,7 +455,7 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 	}
 
 	// Reset task for resurrection
-	task.Status = models.TaskStatusPending
+	task.Status = entity.TaskStatusPending
 	task.RetryCount = 0
 	task.NextRetryAt = nil
 	task.ErrorMessage = nil
@@ -503,3 +505,26 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 
 	c.JSON(http.StatusAccepted, response)
 }
+
+// getStatusCode maps domain errors to HTTP status codes
+func getStatusCode(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, domain.ErrConflict):
+		return http.StatusConflict
+	case errors.Is(err, domain.ErrBadParamInput):
+		return http.StatusBadRequest
+	case errors.Is(err, domain.ErrTaskCannotDelete):
+		return http.StatusBadRequest
+	case errors.Is(err, domain.ErrTaskCannotRetry):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
+

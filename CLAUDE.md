@@ -25,7 +25,7 @@ make test
 go test -v ./...
 
 # Run specific test
-go test -v ./internal/usecase -run TestWorkerPool
+go test -v ./task -run TestWorkerPool
 
 # Format code
 make fmt
@@ -69,29 +69,72 @@ npm run preview
 
 ## Architecture
 
-The codebase follows **go-clean-arch** principles with clear layer separation:
+The codebase follows **go-clean-arch** principles (based on [bxcodec/go-clean-arch](https://github.com/bxcodec/go-clean-arch)) with clear layer separation:
+
+### Directory Structure
+
+```
+.
+├── domain/                    # Domain layer (entities + repository interfaces)
+│   ├── entity/               # Business entities
+│   │   ├── task.go           # Task entity with business logic
+│   │   └── json_bytes.go     # JSONBytes custom type
+│   ├── repository/           # Repository interfaces
+│   │   └── task_repository.go
+│   └── errors.go             # Domain-specific errors
+├── task/                     # Task use case layer
+│   ├── service.go            # Task business logic
+│   └── scheduler.go          # Task scheduling logic
+├── callback/                 # Callback use case layer
+│   └── service.go            # Callback delivery logic
+├── delivery/                 # Delivery layer
+│   ├── rest/                 # HTTP delivery
+│   │   ├── handler.go        # HTTP handlers
+│   │   ├── middleware/       # HTTP middleware
+│   │   └── dto/              # Request/response DTOs
+│   └── websocket/           # WebSocket delivery
+│       └── hub.go
+├── repository/              # Repository implementations
+│   └── mysql/
+│       ├── connection.go
+│       └── task_repository.go
+├── infrastructure/          # Infrastructure services
+│   ├── worker/
+│   │   └── pool.go          # Worker pool implementation
+│   ├── circuitbreaker/
+│   │   └── circuit_breaker.go
+│   └── logger/
+│       └── logger.go
+└── server/                  # HTTP server
+    └── server.go
+```
 
 ### Core Components
 
-1. **Domain Layer** (`internal/domain/`)
-   - `models/task.go` - Task entity with business logic (state transitions, retry calculation)
-   - `repositories/task_repository.go` - Repository interface
+1. **Domain Layer** (`domain/`)
+   - `entity/task.go` - Task entity with business logic (state transitions, retry calculation)
+   - `entity/json_bytes.go` - JSONBytes custom type for database JSON handling
+   - `repository/task_repository.go` - Repository interface
+   - `errors.go` - Domain-specific errors
 
-2. **Repository Layer** (`internal/repository/mysql/`)
-   - MySQL implementation using go-sql-driver/mysql and sqlx
-   - Connection pooling and context management
+2. **Use Case Layer** (`task/`, `callback/`)
+   - `task/service.go` - Task CRUD operations
+   - `task/scheduler.go` - Tiered polling with time.Ticker (high/normal/cleanup)
+   - `callback/service.go` - HTTP callback delivery with retry logic
 
-3. **Use Case Layer** (`internal/usecase/`)
-   - `task_service.go` - Task CRUD operations
-   - `scheduler.go` - Tiered polling with time.Ticker (high/normal/cleanup)
-   - `worker.go` - Worker pool (default 20 workers) for task execution
-   - `callback_service.go` - HTTP callback delivery with retry logic
+3. **Delivery Layer** (`delivery/`)
+   - `rest/handler.go` - Gin-based HTTP handlers for task API endpoints
+   - `rest/middleware/` - CORS, recovery, and logging middleware
+   - `rest/dto/` - Request/response data transfer objects
+   - `websocket/hub.go` - WebSocket hub for real-time updates
 
-4. **Handler Layer** (`internal/handler/`)
-   - Gin-based HTTP handlers for task API endpoints
-
-5. **Infrastructure** (`internal/infrastructure/`)
+4. **Infrastructure Layer** (`infrastructure/`, `repository/`)
+   - `worker/pool.go` - Worker pool (default 20 workers) for task execution
    - `circuitbreaker/circuit_breaker.go` - Per-URL circuit breaker (closed/open/half-open states)
+   - `repository/mysql/` - MySQL repository implementations
+
+5. **Server** (`server/`)
+   - `server.go` - HTTP server with WebSocket support
 
 ### Tiered Polling Strategy
 
@@ -123,20 +166,21 @@ pending → processing → completed
 
 ## Key Implementation Details
 
-### Task Model (internal/domain/models/task.go)
+### Task Model (domain/entity/task.go)
 
 - **JSONBytes**: Custom type for MySQL JSON with `Scan/Value` methods
 - **State transitions**: `MarkAsProcessing()`, `MarkAsCompleted()`, `MarkAsFailed()`, `MarkAsDeadLettered()`
 - **Exponential backoff**: `CalculateNextRetry()` with jitter (±25%)
 - **Priority classification**: `IsHighPriority()` returns true if priority > 5
 
-### Worker Pool (internal/usecase/worker.go)
+### Worker Pool (infrastructure/worker/pool.go)
 
 - Buffered channel size: `workerCount * 2`
 - Non-blocking submission: `SubmitTask()` returns false if pool is full
 - Graceful shutdown: 30-second timeout waiting for workers to finish
+- Interface-based design to avoid circular dependencies
 
-### Callback Delivery (internal/usecase/callback_service.go)
+### Callback Delivery (callback/service.go)
 
 - HMAC-SHA256 signature header (`X-Signature`) if `CALLBACK_SECRET` is set
 - Response classification:

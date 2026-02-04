@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"later/configs"
-	"later/internal/server"
-	"later/internal/handler"
-	"later/internal/repository/mysql"
-	"later/internal/usecase"
-	"later/internal/infrastructure/circuitbreaker"
-	"later/internal/infrastructure/logger"
-	"later/internal/websocket"
+	"later/server"
+	"later/delivery/rest"
+	"later/repository/mysql"
+	"later/task"
+	"later/callback"
+	"later/infrastructure/worker"
+	"later/infrastructure/circuitbreaker"
+	"later/infrastructure/logger"
+	"later/delivery/websocket"
 
 	"go.uber.org/zap"
 )
@@ -57,7 +59,7 @@ func main() {
 	)
 
 	// Initialize callback service
-	callbackService := usecase.NewCallbackService(
+	callbackService := callback.NewService(
 		cfg.Callback.DefaultTimeout,
 		cb,
 		cfg.Callback.Secret,
@@ -68,11 +70,11 @@ func main() {
 	wsHub := websocket.NewHub()
 	go wsHub.Run()
 
-	// Initialize use cases
-	taskService := usecase.NewTaskService(taskRepo)
+	// Initialize task service
+	taskService := task.NewService(taskRepo)
 
 	// Initialize worker pool with wsHub
-	workerPool := usecase.NewWorkerPool(
+	workerPool := worker.NewWorkerPool(
 		cfg.Worker.PoolSize,
 		taskService,
 		callbackService,
@@ -81,16 +83,16 @@ func main() {
 	)
 	workerPool.Start(cfg.Worker.PoolSize)
 
-	// Convert configs.Scheduler to usecase.SchedulerConfig
-	schedulerCfg := usecase.SchedulerConfig{
+	// Convert configs.Scheduler to task.SchedulerConfig
+	schedulerCfg := task.SchedulerConfig{
 		HighPriorityInterval:   cfg.Scheduler.HighPriorityInterval,
 		NormalPriorityInterval: cfg.Scheduler.NormalPriorityInterval,
 		CleanupInterval:        cfg.Scheduler.CleanupInterval,
 	}
-	scheduler := usecase.NewScheduler(taskRepo, workerPool, schedulerCfg)
+	scheduler := task.NewScheduler(taskRepo, workerPool, schedulerCfg)
 
 	// Initialize HTTP handler with wsHub
-	h := handler.NewHandler(taskService, scheduler, wsHub)
+	h := rest.NewHandler(taskService, scheduler, wsHub)
 
 	// Start HTTP server
 	srv := server.NewServerWithHub(cfg.Server, h, wsHub)
@@ -139,7 +141,7 @@ func main() {
 }
 
 // setupWebSocketBroadcasts configures WebSocket broadcasts for task events
-func setupWebSocketBroadcasts(taskService *usecase.TaskService, wsHub interface{}) {
+func setupWebSocketBroadcasts(taskService *task.Service, wsHub interface{}) {
 	// The wsHub is used to broadcast task events to connected clients
 	// In a real implementation, you would hook into the task service methods
 	// For now, we log that WebSocket is ready

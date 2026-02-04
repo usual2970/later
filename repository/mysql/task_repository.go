@@ -5,23 +5,23 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"later/internal/domain/models"
-	"later/internal/domain/repositories"
+	"later/domain/entity"
+	"later/domain/repository"
 
 	"github.com/jmoiron/sqlx"
 )
 
-// taskRepository implements repositories.TaskRepository
+// taskRepository implements repository.TaskRepository
 type taskRepository struct {
 	db *sqlx.DB
 }
 
 // NewTaskRepository creates a new MySQL task repository
-func NewTaskRepository(db *sqlx.DB) repositories.TaskRepository {
+func NewTaskRepository(db *sqlx.DB) repository.TaskRepository {
 	return &taskRepository{db: db}
 }
 
-func (r *taskRepository) Create(ctx context.Context, task *models.Task) error {
+func (r *taskRepository) Create(ctx context.Context, task *entity.Task) error {
 	query := `
 		INSERT INTO task_queue (
 			id, name, payload, callback_url, status,
@@ -45,7 +45,7 @@ func (r *taskRepository) Create(ctx context.Context, task *models.Task) error {
 	return err
 }
 
-func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task, error) {
+func (r *taskRepository) FindByID(ctx context.Context, id string) (*entity.Task, error) {
 	query := `
 		SELECT id, name, payload, callback_url, status,
 			   created_at, scheduled_at, started_at, completed_at,
@@ -57,7 +57,7 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 		WHERE id = ? AND deleted_at IS NULL
 	`
 
-	var task models.Task
+	var task entity.Task
 	var tagsJSON []byte
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&task.ID, &task.Name, &task.Payload, &task.CallbackURL, &task.Status,
@@ -81,7 +81,7 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 	return &task, nil
 }
 
-func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limit int) ([]*models.Task, error) {
+func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limit int) ([]*entity.Task, error) {
 	query := `
 		SELECT id, name, payload, callback_url, status,
 			   created_at, scheduled_at, started_at, completed_at,
@@ -105,9 +105,9 @@ func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limi
 	}
 	defer rows.Close()
 
-	var tasks []*models.Task
+	var tasks []*entity.Task
 	for rows.Next() {
-		var task models.Task
+		var task entity.Task
 		var tagsJSON []byte
 		err := rows.Scan(
 			&task.ID, &task.Name, &task.Payload, &task.CallbackURL, &task.Status,
@@ -134,11 +134,11 @@ func (r *taskRepository) FindDueTasks(ctx context.Context, minPriority int, limi
 	return tasks, rows.Err()
 }
 
-func (r *taskRepository) FindPendingTasks(ctx context.Context, limit int) ([]*models.Task, error) {
+func (r *taskRepository) FindPendingTasks(ctx context.Context, limit int) ([]*entity.Task, error) {
 	return r.FindDueTasks(ctx, -1, limit)
 }
 
-func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*models.Task, error) {
+func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*entity.Task, error) {
 	query := `
 		SELECT id, name, payload, callback_url, status,
 			   created_at, scheduled_at, started_at, completed_at,
@@ -160,9 +160,9 @@ func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*mod
 	}
 	defer rows.Close()
 
-	var tasks []*models.Task
+	var tasks []*entity.Task
 	for rows.Next() {
-		var task models.Task
+		var task entity.Task
 		var tagsJSON []byte
 		err := rows.Scan(
 			&task.ID, &task.Name, &task.Payload, &task.CallbackURL, &task.Status,
@@ -189,7 +189,7 @@ func (r *taskRepository) FindFailedTasks(ctx context.Context, limit int) ([]*mod
 	return tasks, rows.Err()
 }
 
-func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
+func (r *taskRepository) Update(ctx context.Context, task *entity.Task) error {
 	query := `
 		UPDATE task_queue SET
 			status = ?,
@@ -243,7 +243,7 @@ func (r *taskRepository) SoftDelete(ctx context.Context, taskID string, deletedB
 	return nil
 }
 
-func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilter) ([]*models.Task, int64, error) {
+func (r *taskRepository) List(ctx context.Context, filter repository.TaskFilter) ([]*entity.Task, int64, error) {
 	whereClause := "WHERE deleted_at IS NULL"
 	args := []interface{}{}
 
@@ -309,9 +309,9 @@ func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilte
 	}
 	defer rows.Close()
 
-	var tasks []*models.Task
+	var tasks []*entity.Task
 	for rows.Next() {
-		var task models.Task
+		var task entity.Task
 		var tagsJSON []byte
 		err := rows.Scan(
 			&task.ID, &task.Name, &task.Payload, &task.CallbackURL, &task.Status,
@@ -338,7 +338,7 @@ func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilte
 	return tasks, total, rows.Err()
 }
 
-func (r *taskRepository) CountByStatus(ctx context.Context) (map[models.TaskStatus]int64, error) {
+func (r *taskRepository) CountByStatus(ctx context.Context) (map[entity.TaskStatus]int64, error) {
 	query := `
 		SELECT status, COUNT(*) as count
 		FROM task_queue
@@ -351,9 +351,9 @@ func (r *taskRepository) CountByStatus(ctx context.Context) (map[models.TaskStat
 	}
 	defer rows.Close()
 
-	result := make(map[models.TaskStatus]int64)
+	result := make(map[entity.TaskStatus]int64)
 	for rows.Next() {
-		var status models.TaskStatus
+		var status entity.TaskStatus
 		var count int64
 		if err := rows.Scan(&status, &count); err != nil {
 			return nil, err

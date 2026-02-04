@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"later/internal/domain/models"
-	"later/internal/domain/repositories"
+	"later/domain/entity"
+	"later/domain/repository"
 )
 
 // CreateTaskRequest represents a request to create a new task
 type CreateTaskRequest struct {
-	Name           string      `json:"name" binding:"required"`
-	Payload        JSONBytes   `json:"payload" binding:"required"`
+	Name           string          `json:"name" binding:"required"`
+	Payload        entity.JSONBytes   `json:"payload" binding:"required"`
 	CallbackURL    string      `json:"callback_url" binding:"required,url"`
 	ScheduledFor   *CustomTime `json:"scheduled_for"`
 	TimeoutSeconds *int        `json:"timeout_seconds"`
@@ -66,7 +66,7 @@ type TaskResponse struct {
 	Name               string            `json:"name"`
 	Payload            json.RawMessage   `json:"payload"`
 	CallbackURL        string            `json:"callback_url"`
-	Status             models.TaskStatus `json:"status"`
+	Status             entity.TaskStatus `json:"status"`
 	CreatedAt          time.Time         `json:"created_at"`
 	ScheduledFor       time.Time         `json:"scheduled_at"`
 	StartedAt          *time.Time        `json:"started_at,omitempty"`
@@ -111,7 +111,7 @@ func (tr TaskResponse) MarshalJSON() ([]byte, error) {
 }
 
 // ToModel converts CreateTaskRequest to a Task entity
-func (r *CreateTaskRequest) ToModel() *models.Task {
+func (r *CreateTaskRequest) ToModel() *entity.Task {
 	now := time.Now()
 	scheduledAt := now
 
@@ -135,7 +135,7 @@ func (r *CreateTaskRequest) ToModel() *models.Task {
 		priority = 0
 	}
 
-	task := models.NewTask(r.Name, r.Payload, r.CallbackURL, scheduledAt, priority)
+	task := entity.NewTask(r.Name, r.Payload, r.CallbackURL, scheduledAt, priority)
 
 	// Override defaults with request values
 	task.MaxRetries = maxRetries
@@ -147,7 +147,7 @@ func (r *CreateTaskRequest) ToModel() *models.Task {
 
 // ListTasksQuery represents query parameters for listing tasks
 type ListTasksQuery struct {
-	Status    *models.TaskStatus `form:"status"`
+	Status    *entity.TaskStatus `form:"status"`
 	Priority  *int               `form:"priority"`
 	Tags      string             `form:"tags"` // comma-separated
 	DateFrom  *string            `form:"date_from"`
@@ -187,8 +187,8 @@ func (q *ListTasksQuery) Validate() error {
 }
 
 // ToRepositoryFilter converts ListTasksQuery to repository filter
-func (q *ListTasksQuery) ToRepositoryFilter() (*repositories.TaskFilter, error) {
-	filter := &repositories.TaskFilter{
+func (q *ListTasksQuery) ToRepositoryFilter() (*repository.TaskFilter, error) {
+	filter := &repository.TaskFilter{
 		Status:    q.Status,
 		Priority:  q.Priority,
 		Page:      q.Page,
@@ -239,7 +239,7 @@ type PaginationInfo struct {
 // StatsResponse represents statistics about tasks
 type StatsResponse struct {
 	Total               int64                       `json:"total"`
-	ByStatus            map[models.TaskStatus]int64 `json:"by_status"`
+	ByStatus            map[entity.TaskStatus]int64 `json:"by_status"`
 	Last24h             Last24hStats                `json:"last_24h"`
 	CallbackSuccessRate float64                     `json:"callback_success_rate"`
 }

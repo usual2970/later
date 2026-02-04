@@ -1,9 +1,10 @@
-package usecase
+package task
 
 import (
 	"context"
-	"later/internal/domain/repositories"
-	"later/internal/domain/models"
+	"later/domain/repository"
+	"later/domain/entity"
+	"later/infrastructure/worker"
 	"log"
 	"time"
 
@@ -16,16 +17,16 @@ type Scheduler struct {
 	normalPriorityTicker *time.Ticker
 	cleanupTicker        *time.Ticker
 
-	taskRepo   repositories.TaskRepository
-	workerPool *WorkerPool
+	taskRepo   repository.TaskRepository
+	workerPool worker.WorkerPool
 	logger     *zap.Logger
 	quit       chan struct{}
 }
 
 // NewScheduler creates a new scheduler with tiered polling
 func NewScheduler(
-	repo repositories.TaskRepository,
-	workerPool *WorkerPool,
+	repo repository.TaskRepository,
+	workerPool worker.WorkerPool,
 	cfg SchedulerConfig,
 ) *Scheduler {
 	return &Scheduler{
@@ -82,7 +83,7 @@ func (s *Scheduler) Stop() {
 }
 
 // SubmitTaskImmediately submits a task directly to the worker pool
-func (s *Scheduler) SubmitTaskImmediately(task *models.Task) {
+func (s *Scheduler) SubmitTaskImmediately(task *entity.Task) {
 	if s.workerPool.SubmitTask(task) {
 		log.Printf("Task submitted immediately: %s (priority: %d)", task.ID, task.Priority)
 	} else {

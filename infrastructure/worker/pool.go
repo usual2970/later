@@ -1,4 +1,4 @@
-package usecase
+package worker
 
 import (
 	"context"
@@ -6,18 +6,38 @@ import (
 	"sync"
 	"time"
 
-	"later/internal/domain/models"
-	"later/internal/websocket"
+	"later/domain/entity"
+	"later/delivery/websocket"
+	"later/callback"
 
 	"go.uber.org/zap"
 )
 
+// TaskService defines the interface for task operations (to avoid circular dependency)
+type TaskService interface {
+	GetTask(ctx context.Context, id string) (*entity.Task, error)
+	UpdateTask(ctx context.Context, task *entity.Task) error
+}
+
+// WorkerPool defines the interface for task worker pool
+type WorkerPool interface {
+	Start(workerCount int)
+	SubmitTask(task *entity.Task) bool
+	Stop()
+}
+
+// WorkerPoolStatus represents the status of the worker pool
+type WorkerPoolStatus struct {
+	ActiveWorkers int `json:"active_workers"`
+	QueuedTasks   int `json:"queued_tasks"`
+}
+
 // Worker represents a task worker
 type Worker struct {
 	id         int
-	taskChan   <-chan *models.Task
-	taskService *TaskService
-	callbackService *CallbackService
+	taskChan   <-chan *entity.Task
+	taskService TaskService
+	callbackService *callback.Service
 	wsHub      *websocket.Hub
 	wg         *sync.WaitGroup
 	quit       chan bool
@@ -27,9 +47,9 @@ type Worker struct {
 // NewWorker creates a new worker
 func NewWorker(
 	id int,
-	taskChan <-chan *models.Task,
-	taskService *TaskService,
-	callbackService *CallbackService,
+	taskChan <-chan *entity.Task,
+	taskService TaskService,
+	callbackService *callback.Service,
 	wsHub *websocket.Hub,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
@@ -76,7 +96,7 @@ func (w *Worker) Stop() {
 }
 
 // processTask handles the execution of a single task
-func (w *Worker) processTask(task *models.Task) {
+func (w *Worker) processTask(task *entity.Task) {
 	ctx := context.Background()
 
 	w.logger.Info("Processing task",
@@ -140,7 +160,7 @@ func (w *Worker) processTask(task *models.Task) {
 }
 
 // handleRetry handles task retry with exponential backoff
-func (w *Worker) handleRetry(task *models.Task) {
+func (w *Worker) handleRetry(task *entity.Task) {
 	ctx := context.Background()
 
 	// Calculate next retry time
@@ -165,7 +185,7 @@ func (w *Worker) handleRetry(task *models.Task) {
 }
 
 // handleFailure handles task failure when max retries exceeded
-func (w *Worker) handleFailure(task *models.Task, err error) {
+func (w *Worker) handleFailure(task *entity.Task, err error) {
 	ctx := context.Background()
 
 	// Check if max retries exceeded
@@ -212,11 +232,11 @@ func (w *Worker) handleFailure(task *models.Task, err error) {
 }
 
 // WorkerPool manages a pool of workers
-type WorkerPool struct {
+type workerPool struct {
 	workers    []*Worker
-	taskChan   chan *models.Task
-	taskService *TaskService
-	callbackService *CallbackService
+	taskChan   chan *entity.Task
+	taskService TaskService
+	callbackService *callback.Service
 	wsHub      *websocket.Hub
 	wg         *sync.WaitGroup
 	logger     *zap.Logger
@@ -226,13 +246,13 @@ type WorkerPool struct {
 // NewWorkerPool creates a new worker pool
 func NewWorkerPool(
 	workerCount int,
-	taskService *TaskService,
-	callbackService *CallbackService,
+	taskService TaskService,
+	callbackService *callback.Service,
 	wsHub *websocket.Hub,
 	logger *zap.Logger,
-) *WorkerPool {
-	return &WorkerPool{
-		taskChan:        make(chan *models.Task, workerCount*2),
+) WorkerPool {
+	return &workerPool{
+		taskChan:        make(chan *entity.Task, workerCount*2),
 		taskService:     taskService,
 		callbackService: callbackService,
 		wsHub:           wsHub,
@@ -243,7 +263,7 @@ func NewWorkerPool(
 }
 
 // Start initializes and starts all workers
-func (p *WorkerPool) Start(workerCount int) {
+func (p *workerPool) Start(workerCount int) {
 	p.workers = make([]*Worker, workerCount)
 	for i := 0; i < workerCount; i++ {
 		p.workers[i] = NewWorker(
@@ -264,7 +284,7 @@ func (p *WorkerPool) Start(workerCount int) {
 }
 
 // Stop gracefully shuts down all workers
-func (p *WorkerPool) Stop() {
+func (p *workerPool) Stop() {
 	p.logger.Info("Stopping worker pool")
 
 	// Stop all workers
@@ -290,7 +310,7 @@ func (p *WorkerPool) Stop() {
 }
 
 // SubmitTask submits a task to the worker pool
-func (p *WorkerPool) SubmitTask(task *models.Task) bool {
+func (p *workerPool) SubmitTask(task *entity.Task) bool {
 	select {
 	case p.taskChan <- task:
 		return true
@@ -300,12 +320,12 @@ func (p *WorkerPool) SubmitTask(task *models.Task) bool {
 }
 
 // WorkerCount returns the number of active workers
-func (p *WorkerPool) WorkerCount() int {
+func (p *workerPool) WorkerCount() int {
 	return len(p.workers)
 }
 
 // SetWSHub sets or updates the WebSocket hub for the worker pool
-func (p *WorkerPool) SetWSHub(wsHub *websocket.Hub) {
+func (p *workerPool) SetWSHub(wsHub *websocket.Hub) {
 	p.wsHub = wsHub
 	// Update all existing workers
 	for _, worker := range p.workers {

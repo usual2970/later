@@ -1,8 +1,6 @@
-package models
+package entity
 
 import (
-	"database/sql/driver"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -56,36 +54,6 @@ type Task struct {
 	// Soft delete
 	DeletedAt *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 	DeletedBy *string    `json:"deleted_by,omitempty" db:"deleted_by"`
-}
-
-// JSONBytes is a custom type for handling JSONB in PostgreSQL
-type JSONBytes []byte
-
-// Scan implements sql.Scanner for JSONBytes
-func (j *JSONBytes) Scan(value interface{}) error {
-	if value == nil {
-		*j = nil
-		return nil
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		*j = v
-	case string:
-		*j = []byte(v)
-	default:
-		return fmt.Errorf("unsupported type for JSONBytes: %T", value)
-	}
-
-	return nil
-}
-
-// Value implements driver.Valuer for JSONBytes
-func (j JSONBytes) Value() (driver.Value, error) {
-	if len(j) == 0 {
-		return nil, nil
-	}
-	return string(j), nil
 }
 
 // NewTask creates a new task with default values

@@ -1,4 +1,4 @@
-package usecase
+package callback
 
 import (
 	"bytes"
@@ -10,28 +10,28 @@ import (
 	"net/http"
 	"time"
 
-	"later/internal/domain/models"
-	"later/internal/infrastructure/circuitbreaker"
+	"later/domain/entity"
+	"later/infrastructure/circuitbreaker"
 
 	"go.uber.org/zap"
 )
 
-// CallbackService handles HTTP callback delivery
-type CallbackService struct {
+// Service handles HTTP callback delivery
+type Service struct {
 	client           *http.Client
 	circuitBreaker   *circuitbreaker.CircuitBreaker
 	signingSecret    string
 	logger           *zap.Logger
 }
 
-// NewCallbackService creates a new callback service
-func NewCallbackService(
+// NewService creates a new callback service
+func NewService(
 	timeout time.Duration,
 	circuitBreaker *circuitbreaker.CircuitBreaker,
 	signingSecret string,
 	logger *zap.Logger,
-) *CallbackService {
-	return &CallbackService{
+) *Service {
+	return &Service{
 		client:         &http.Client{Timeout: timeout},
 		circuitBreaker: circuitBreaker,
 		signingSecret:  signingSecret,
@@ -40,7 +40,7 @@ func NewCallbackService(
 }
 
 // DeliverCallback delivers a callback to the task's callback URL
-func (s *CallbackService) DeliverCallback(ctx context.Context, task *models.Task) error {
+func (s *Service) DeliverCallback(ctx context.Context, task *entity.Task) error {
 	// Check circuit breaker
 	if s.circuitBreaker != nil && s.circuitBreaker.IsOpen(task.CallbackURL) {
 		return fmt.Errorf("circuit breaker is open for URL: %s", task.CallbackURL)
@@ -57,7 +57,7 @@ func (s *CallbackService) DeliverCallback(ctx context.Context, task *models.Task
 }
 
 // deliverHTTPCallback performs the actual HTTP POST
-func (s *CallbackService) deliverHTTPCallback(ctx context.Context, task *models.Task) error {
+func (s *Service) deliverHTTPCallback(ctx context.Context, task *entity.Task) error {
 	// Create request
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -113,7 +113,7 @@ func (s *CallbackService) deliverHTTPCallback(ctx context.Context, task *models.
 }
 
 // handleSuccess marks task as completed
-func (s *CallbackService) handleSuccess(task *models.Task) error {
+func (s *Service) handleSuccess(task *entity.Task) error {
 	task.MarkAsCompleted()
 	task.CallbackAttempts++
 	status := 200
@@ -129,7 +129,7 @@ func (s *CallbackService) handleSuccess(task *models.Task) error {
 }
 
 // handleRetry returns an error to trigger retry logic
-func (s *CallbackService) handleRetry(task *models.Task, err error) error {
+func (s *Service) handleRetry(task *entity.Task, err error) error {
 	task.CallbackAttempts++
 	status := 500
 	task.LastCallbackStatus = &status
@@ -147,7 +147,7 @@ func (s *CallbackService) handleRetry(task *models.Task, err error) error {
 }
 
 // handleFailure marks task as permanently failed
-func (s *CallbackService) handleFailure(task *models.Task, err error) error {
+func (s *Service) handleFailure(task *entity.Task, err error) error {
 	task.MarkAsFailed(err)
 	task.CallbackAttempts++
 	status := 400
@@ -166,7 +166,7 @@ func (s *CallbackService) handleFailure(task *models.Task, err error) error {
 }
 
 // generateSignature creates an HMAC signature for the payload
-func (s *CallbackService) generateSignature(payload []byte) string {
+func (s *Service) generateSignature(payload []byte) string {
 	h := hmac.New(sha256.New, []byte(s.signingSecret))
 	h.Write(payload)
 	return "sha256=" + hex.EncodeToString(h.Sum(nil))

@@ -1,6 +1,7 @@
-package dto
+package entity
 
 import (
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,33 @@ import (
 // - A JSON object (will be marshaled to bytes)
 // - A base64-encoded string (will be decoded)
 type JSONBytes []byte
+
+// Scan implements sql.Scanner for JSONBytes
+func (j *JSONBytes) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []byte:
+		*j = v
+	case string:
+		*j = []byte(v)
+	default:
+		return fmt.Errorf("unsupported type for JSONBytes: %T", value)
+	}
+
+	return nil
+}
+
+// Value implements driver.Valuer for JSONBytes
+func (j JSONBytes) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return nil, nil
+	}
+	return string(j), nil
+}
 
 // UnmarshalJSON supports both JSON objects and base64 strings
 func (j *JSONBytes) UnmarshalJSON(b []byte) error {

@@ -1,21 +1,18 @@
-package usecase
+package task
 
 import (
 	"context"
 	"errors"
 
-	"later/internal/domain/models"
-	"later/internal/domain/repositories"
-)
-
-var (
-	ErrTaskNotFound = errors.New("task not found")
+	"later/domain/entity"
+	"later/domain/repository"
+	"later/domain"
 )
 
 // Stats represents statistics
 type Stats struct {
 	Total                int64                        `json:"total"`
-	ByStatus            map[models.TaskStatus]int64 `json:"by_status"`
+	ByStatus            map[entity.TaskStatus]int64 `json:"by_status"`
 	Last24h              Last24hStats                 `json:"last_24h"`
 	CallbackSuccessRate float64                      `json:"callback_success_rate"`
 }
@@ -27,37 +24,37 @@ type Last24hStats struct {
 	Failed    int64 `json:"failed"`
 }
 
-// TaskService handles business logic for tasks
-type TaskService struct {
-	repo repositories.TaskRepository
+// Service handles business logic for tasks
+type Service struct {
+	repo repository.TaskRepository
 }
 
-// NewTaskService creates a new task service
-func NewTaskService(repo repositories.TaskRepository) *TaskService {
-	return &TaskService{repo: repo}
+// NewService creates a new task service
+func NewService(repo repository.TaskRepository) *Service {
+	return &Service{repo: repo}
 }
 
 // CreateTask creates a new task and saves it to the database
-func (s *TaskService) CreateTask(ctx context.Context, task *models.Task) error {
+func (s *Service) CreateTask(ctx context.Context, task *entity.Task) error {
 	return s.repo.Create(ctx, task)
 }
 
 // GetTask retrieves a task by ID
-func (s *TaskService) GetTask(ctx context.Context, id string) (*models.Task, error) {
+func (s *Service) GetTask(ctx context.Context, id string) (*entity.Task, error) {
 	task, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, ErrTaskNotFound
+		return nil, domain.ErrNotFound
 	}
 	return task, nil
 }
 
 // DeleteTask soft deletes a task by ID
 // Only pending and failed tasks can be deleted
-func (s *TaskService) DeleteTask(ctx context.Context, id string, deletedBy string) error {
+func (s *Service) DeleteTask(ctx context.Context, id string, deletedBy string) error {
 	// Get the task first
 	task, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return ErrTaskNotFound
+		return domain.ErrNotFound
 	}
 
 	// Validate task can be deleted
@@ -70,39 +67,39 @@ func (s *TaskService) DeleteTask(ctx context.Context, id string, deletedBy strin
 }
 
 // UpdateTask updates a task
-func (s *TaskService) UpdateTask(ctx context.Context, task *models.Task) error {
+func (s *Service) UpdateTask(ctx context.Context, task *entity.Task) error {
 	return s.repo.Update(ctx, task)
 }
 
 // List retrieves tasks with filters and pagination
-func (s *TaskService) List(ctx context.Context, filter *repositories.TaskFilter) ([]*models.Task, int64, error) {
+func (s *Service) List(ctx context.Context, filter *repository.TaskFilter) ([]*entity.Task, int64, error) {
 	return s.repo.List(ctx, *filter)
 }
 
 // GetStats retrieves task statistics
-func (s *TaskService) GetStats(ctx context.Context) (*Stats, error) {
+func (s *Service) GetStats(ctx context.Context) (*Stats, error) {
 	byStatus, err := s.repo.CountByStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Calculate total
-	total := byStatus[models.TaskStatusPending] + byStatus[models.TaskStatusProcessing] +
-		byStatus[models.TaskStatusCompleted] + byStatus[models.TaskStatusFailed] +
-		byStatus[models.TaskStatusDeadLettered]
+	total := byStatus[entity.TaskStatusPending] + byStatus[entity.TaskStatusProcessing] +
+		byStatus[entity.TaskStatusCompleted] + byStatus[entity.TaskStatusFailed] +
+		byStatus[entity.TaskStatusDeadLettered]
 
 	// Calculate last 24h stats
 	last24h := Last24hStats{
 		Submitted: 0,  // TODO: Query from database
-		Completed: byStatus[models.TaskStatusCompleted],
-		Failed:    byStatus[models.TaskStatusFailed],
+		Completed: byStatus[entity.TaskStatusCompleted],
+		Failed:    byStatus[entity.TaskStatusFailed],
 	}
 
 	// Calculate callback success rate
 	successRate := 0.0
-	totalCompletedAndFailed := byStatus[models.TaskStatusCompleted] + byStatus[models.TaskStatusFailed]
+	totalCompletedAndFailed := byStatus[entity.TaskStatusCompleted] + byStatus[entity.TaskStatusFailed]
 	if totalCompletedAndFailed > 0 {
-		successRate = float64(byStatus[models.TaskStatusCompleted]) / float64(totalCompletedAndFailed)
+		successRate = float64(byStatus[entity.TaskStatusCompleted]) / float64(totalCompletedAndFailed)
 	}
 
 	return &Stats{
@@ -114,7 +111,7 @@ func (s *TaskService) GetStats(ctx context.Context) (*Stats, error) {
 }
 
 // ProcessTask executes a task and delivers callback
-func (s *TaskService) ProcessTask(ctx context.Context, task *models.Task) error {
+func (s *Service) ProcessTask(ctx context.Context, task *entity.Task) error {
 	// TODO: Implement callback delivery
 	// For now, just mark as completed
 	task.MarkAsCompleted()
