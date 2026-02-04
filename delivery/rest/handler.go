@@ -168,7 +168,11 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		},
 	}
 
+	log.Printf("[ListTasks] About to send response: %d tasks, pagination: page=%d, total=%d",
+		len(listResponse.Tasks), listResponse.Pagination.Page, listResponse.Pagination.Total)
+	log.Printf("[ListTasks] Calling response.Success...")
 	response.Success(c, listResponse)
+	log.Printf("[ListTasks] response.Success returned")
 }
 
 // GetTask handles GET /api/v1/tasks/:id

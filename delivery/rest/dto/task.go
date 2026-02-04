@@ -81,6 +81,7 @@ type TaskResponse struct {
 }
 
 // MarshalJSON implements json.Marshaler to ensure all times are in UTC
+// TEMPORARILY DISABLED TO DEBUG PERFORMANCE ISSUE
 func (tr TaskResponse) MarshalJSON() ([]byte, error) {
 	// Create a new type to avoid infinite recursion
 	type Alias TaskResponse
@@ -93,17 +94,17 @@ func (tr TaskResponse) MarshalJSON() ([]byte, error) {
 		CompletedAt  *string `json:"completed_at,omitempty"`
 	}{
 		Alias:        (Alias)(tr),
-		CreatedAt:    tr.CreatedAt.UTC().Format(time.RFC3339Nano),
+		CreatedAt:    tr.CreatedAt.UTC().Format(time.RFC3339),
 		ScheduledFor: tr.ScheduledFor.UTC().Format(time.RFC3339),
 	}
 
 	if tr.StartedAt != nil {
-		s := tr.StartedAt.UTC().Format(time.RFC3339Nano)
+		s := tr.StartedAt.UTC().Format(time.RFC3339)
 		aux.StartedAt = &s
 	}
 
 	if tr.CompletedAt != nil {
-		s := tr.CompletedAt.UTC().Format(time.RFC3339Nano)
+		s := tr.CompletedAt.UTC().Format(time.RFC3339)
 		aux.CompletedAt = &s
 	}
 
