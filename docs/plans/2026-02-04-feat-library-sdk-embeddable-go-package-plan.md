@@ -1112,21 +1112,22 @@ tx.Commit() // Task only created if transaction commits
 **Goal**: Register routes with existing Gin engine
 
 **Tasks**:
-1. Implement `RegisterRoutes(engine)`
-2. Adapt existing handlers for library use
-3. Add route prefix support
-4. Add health check endpoint
-5. Integration tests
+1. [x] Implement `RegisterRoutes(engine)`
+2. [x] Adapt existing handlers for library use
+3. [x] Add route prefix support
+4. [x] Add health check endpoint
+5. [x] Integration tests
 
 **Deliverables**:
 - ✅ `pkg/later/server.go`
+- ✅ `pkg/later/server_test.go`
 - ✅ Route registration tests
 - ✅ Example embedded app
 
 **Success Criteria**:
-- Can register routes with custom prefix
-- HTTP endpoints work correctly
-- Health check returns accurate status
+- [x] Can register routes with custom prefix
+- [x] HTTP endpoints work correctly
+- [x] Health check returns accurate status
 
 ### Phase 3: Transaction Support (Week 2)
 **Goal**: Create tasks within app transactions
