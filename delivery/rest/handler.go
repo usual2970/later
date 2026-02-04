@@ -170,7 +170,23 @@ func (h *Handler) ListTasks(c *gin.Context) {
 
 	log.Printf("[ListTasks] About to send response: %d tasks, pagination: page=%d, total=%d",
 		len(listResponse.Tasks), listResponse.Pagination.Page, listResponse.Pagination.Total)
-	response.Success(c, listResponse)
+
+	// Debug: Try to serialize manually first
+	jsonData, err := json.Marshal(listResponse)
+	if err != nil {
+		log.Printf("[ERROR] Failed to marshal response: %v", err)
+		response.ErrorWithMessage(c, http.StatusInternalServerError, "marshal_error", err.Error())
+		return
+	}
+	log.Printf("[DEBUG] Serialized response size: %d bytes", len(jsonData))
+	if len(jsonData) > 100 {
+		log.Printf("[DEBUG] First 100 bytes: %s", string(jsonData[:100]))
+	} else {
+		log.Printf("[DEBUG] Full response: %s", string(jsonData))
+	}
+
+	c.JSON(http.StatusOK, listResponse)
+	log.Printf("[ListTasks] c.JSON called")
 }
 
 // GetTask handles GET /api/v1/tasks/:id
