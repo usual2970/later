@@ -2,8 +2,8 @@ package task
 
 import (
 	"context"
-	"later/domain/repository"
 	"later/domain/entity"
+	"later/domain/repository"
 	"later/infrastructure/worker"
 	"log"
 	"time"
@@ -13,7 +13,7 @@ import (
 
 // Scheduler handles tiered polling for task scheduling
 type Scheduler struct {
-	highPriorityTicker  *time.Ticker
+	highPriorityTicker   *time.Ticker
 	normalPriorityTicker *time.Ticker
 	cleanupTicker        *time.Ticker
 
@@ -32,11 +32,11 @@ func NewScheduler(
 	return &Scheduler{
 		highPriorityTicker:   time.NewTicker(cfg.HighPriorityInterval),
 		normalPriorityTicker: time.NewTicker(cfg.NormalPriorityInterval),
-		cleanupTicker:         time.NewTicker(cfg.CleanupInterval),
-		taskRepo:              repo,
-		workerPool:            workerPool,
-		logger:                zap.NewNop(), // TODO: Use proper logger
-		quit:                  make(chan struct{}),
+		cleanupTicker:        time.NewTicker(cfg.CleanupInterval),
+		taskRepo:             repo,
+		workerPool:           workerPool,
+		logger:               zap.NewNop(), // TODO: Use proper logger
+		quit:                 make(chan struct{}),
 	}
 }
 
@@ -102,6 +102,8 @@ func (s *Scheduler) pollDueTasks(tier string, minPriority int, limit int) {
 	}
 
 	if len(tasks) == 0 {
+		// Only poll for retries if no new pending tasks
+		s.pollRetryTasks(tier, limit)
 		return
 	}
 
@@ -117,6 +119,38 @@ func (s *Scheduler) pollDueTasks(tier string, minPriority int, limit int) {
 	}
 
 	log.Printf("Tasks submitted to workers (tier=%s): %d/%d", tier, submitted, len(tasks))
+}
+
+func (s *Scheduler) pollRetryTasks(tier string, limit int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Poll for failed tasks ready for retry
+	retryTasks, err := s.taskRepo.FindFailedTasks(ctx, limit)
+	if err != nil {
+		log.Printf("Failed to fetch retry tasks (tier=%s): %v", tier, err)
+		return
+	}
+
+	if len(retryTasks) == 0 {
+		return
+	}
+
+	log.Printf("Found %d retry tasks (tier=%s)", len(retryTasks), tier)
+
+	submitted := 0
+	for _, task := range retryTasks {
+		// Reset task to pending before resubmitting
+		task.Status = entity.TaskStatusPending
+
+		if s.workerPool.SubmitTask(task) {
+			submitted++
+		} else {
+			log.Printf("Worker pool full, retry task will be retried next cycle: %s", task.ID)
+		}
+	}
+
+	log.Printf("Retry tasks submitted to workers (tier=%s): %d/%d", tier, submitted, len(retryTasks))
 }
 
 func (s *Scheduler) cleanupExpiredTasks() {

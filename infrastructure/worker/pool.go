@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"later/domain/entity"
 	"later/callback"
+	"later/domain/entity"
 
 	"go.uber.org/zap"
 )
@@ -33,13 +33,13 @@ type WorkerPoolStatus struct {
 
 // Worker represents a task worker
 type Worker struct {
-	id         int
-	taskChan   <-chan *entity.Task
-	taskService TaskService
+	id              int
+	taskChan        <-chan *entity.Task
+	taskService     TaskService
 	callbackService *callback.Service
-	wg         *sync.WaitGroup
-	quit       chan bool
-	logger     *zap.Logger
+	wg              *sync.WaitGroup
+	quit            chan bool
+	logger          *zap.Logger
 }
 
 // NewWorker creates a new worker
@@ -124,7 +124,7 @@ func (w *Worker) processTask(task *entity.Task) {
 
 		// Handle failure with retry logic
 		if task.CanRetry() {
-			w.handleRetry(task)
+			w.handleRetry(task, callbackErr)
 		} else {
 			w.handleFailure(task, callbackErr)
 		}
@@ -146,13 +146,11 @@ func (w *Worker) processTask(task *entity.Task) {
 }
 
 // handleRetry handles task retry with exponential backoff
-func (w *Worker) handleRetry(task *entity.Task) {
+func (w *Worker) handleRetry(task *entity.Task, callbackErr error) {
 	ctx := context.Background()
 
-	// Calculate next retry time
-	nextRetryAt := task.CalculateNextRetry()
-	task.NextRetryAt = &nextRetryAt
-	task.RetryCount++
+	// Use entity method for proper state transition
+	task.MarkAsFailed(callbackErr)
 
 	// Update task in database
 	if err := w.taskService.UpdateTask(ctx, task); err != nil {
@@ -163,11 +161,11 @@ func (w *Worker) handleRetry(task *entity.Task) {
 		return
 	}
 
-	w.logger.Info("Task scheduled for retry",
+	w.logger.Info("Task marked as failed for retry",
 		zap.Int("worker_id", w.id),
 		zap.String("task_id", task.ID),
 		zap.Int("retry_count", task.RetryCount),
-		zap.Time("next_retry_at", nextRetryAt))
+		zap.Time("next_retry_at", *task.NextRetryAt))
 }
 
 // handleFailure handles task failure when max retries exceeded
@@ -209,13 +207,13 @@ func (w *Worker) handleFailure(task *entity.Task, err error) {
 
 // WorkerPool manages a pool of workers
 type workerPool struct {
-	workers    []*Worker
-	taskChan   chan *entity.Task
-	taskService TaskService
+	workers         []*Worker
+	taskChan        chan *entity.Task
+	taskService     TaskService
 	callbackService *callback.Service
-	wg         *sync.WaitGroup
-	logger     *zap.Logger
-	quit       chan bool
+	wg              *sync.WaitGroup
+	logger          *zap.Logger
+	quit            chan bool
 }
 
 // NewWorkerPool creates a new worker pool
