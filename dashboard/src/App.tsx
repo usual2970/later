@@ -1,11 +1,9 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Toaster } from './components/ui/toaster';
-import { WebSocketProvider } from './contexts/WebSocketContext';
 import { DashboardPage } from './pages/DashboardPage';
 import { TasksPage } from './pages/TasksPage';
 import { TaskDetailPage } from './pages/TaskDetailPage';
 import { DeadLetterPage } from './pages/DeadLetterPage';
-import { WebSocketStatus } from './components/WebSocketStatus';
 import { CreateTaskForm } from './components/CreateTaskForm';
 
 function Navigation() {
@@ -48,7 +46,6 @@ function Navigation() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <WebSocketStatus />
             <CreateTaskForm />
           </div>
         </div>
@@ -59,22 +56,20 @@ function Navigation() {
 
 function App() {
   return (
-    <WebSocketProvider>
-      <BrowserRouter>
-        <div className="min-h-screen bg-background">
-          <Navigation />
-          <main className="container mx-auto py-8 px-4">
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/tasks/:id" element={<TaskDetailPage />} />
-              <Route path="/dead-letter" element={<DeadLetterPage />} />
-            </Routes>
-          </main>
-        </div>
-        <Toaster />
-      </BrowserRouter>
-    </WebSocketProvider>
+    <BrowserRouter>
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <main className="container mx-auto py-8 px-4">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks/:id" element={<TaskDetailPage />} />
+            <Route path="/dead-letter" element={<DeadLetterPage />} />
+          </Routes>
+        </main>
+      </div>
+      <Toaster />
+    </BrowserRouter>
   );
 }
 

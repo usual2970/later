@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"later/domain/entity"
-	"later/delivery/websocket"
 	"later/callback"
 
 	"go.uber.org/zap"
@@ -38,7 +37,6 @@ type Worker struct {
 	taskChan   <-chan *entity.Task
 	taskService TaskService
 	callbackService *callback.Service
-	wsHub      *websocket.Hub
 	wg         *sync.WaitGroup
 	quit       chan bool
 	logger     *zap.Logger
@@ -50,7 +48,6 @@ func NewWorker(
 	taskChan <-chan *entity.Task,
 	taskService TaskService,
 	callbackService *callback.Service,
-	wsHub *websocket.Hub,
 	wg *sync.WaitGroup,
 	logger *zap.Logger,
 ) *Worker {
@@ -59,7 +56,6 @@ func NewWorker(
 		taskChan:        taskChan,
 		taskService:     taskService,
 		callbackService: callbackService,
-		wsHub:           wsHub,
 		wg:              wg,
 		quit:            make(chan bool),
 		logger:          logger,
@@ -117,11 +113,6 @@ func (w *Worker) processTask(task *entity.Task) {
 		return
 	}
 
-	// Broadcast status change to WebSocket clients
-	if w.wsHub != nil {
-		w.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
-	}
-
 	// Deliver callback
 	callbackErr := w.callbackService.DeliverCallback(ctx, task)
 
@@ -146,11 +137,6 @@ func (w *Worker) processTask(task *entity.Task) {
 				zap.String("task_id", task.ID),
 				zap.Error(err))
 			return
-		}
-
-		// Broadcast status change to WebSocket clients
-		if w.wsHub != nil {
-			w.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
 		}
 
 		w.logger.Info("Task completed successfully",
@@ -203,11 +189,6 @@ func (w *Worker) handleFailure(task *entity.Task, err error) {
 			return
 		}
 
-		// Broadcast status change to WebSocket clients
-		if w.wsHub != nil {
-			w.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
-		}
-
 		w.logger.Error("Task moved to dead letter queue",
 			zap.Int("worker_id", w.id),
 			zap.String("task_id", task.ID),
@@ -223,11 +204,6 @@ func (w *Worker) handleFailure(task *entity.Task, err error) {
 				zap.Error(updateErr))
 			return
 		}
-
-		// Broadcast status change to WebSocket clients
-		if w.wsHub != nil {
-			w.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
-		}
 	}
 }
 
@@ -237,7 +213,6 @@ type workerPool struct {
 	taskChan   chan *entity.Task
 	taskService TaskService
 	callbackService *callback.Service
-	wsHub      *websocket.Hub
 	wg         *sync.WaitGroup
 	logger     *zap.Logger
 	quit       chan bool
@@ -248,14 +223,12 @@ func NewWorkerPool(
 	workerCount int,
 	taskService TaskService,
 	callbackService *callback.Service,
-	wsHub *websocket.Hub,
 	logger *zap.Logger,
 ) WorkerPool {
 	return &workerPool{
 		taskChan:        make(chan *entity.Task, workerCount*2),
 		taskService:     taskService,
 		callbackService: callbackService,
-		wsHub:           wsHub,
 		wg:              &sync.WaitGroup{},
 		logger:          logger,
 		quit:            make(chan bool),
@@ -271,7 +244,6 @@ func (p *workerPool) Start(workerCount int) {
 			p.taskChan,
 			p.taskService,
 			p.callbackService,
-			p.wsHub,
 			p.wg,
 			p.logger,
 		)
@@ -322,18 +294,4 @@ func (p *workerPool) SubmitTask(task *entity.Task) bool {
 // WorkerCount returns the number of active workers
 func (p *workerPool) WorkerCount() int {
 	return len(p.workers)
-}
-
-// SetWSHub sets or updates the WebSocket hub for the worker pool
-func (p *workerPool) SetWSHub(wsHub *websocket.Hub) {
-	p.wsHub = wsHub
-	// Update all existing workers
-	for _, worker := range p.workers {
-		worker.SetWSHub(wsHub)
-	}
-}
-
-// SetWSHub sets or updates the WebSocket hub for a single worker
-func (w *Worker) SetWSHub(wsHub *websocket.Hub) {
-	w.wsHub = wsHub
 }

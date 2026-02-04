@@ -88,12 +88,10 @@ The codebase follows **go-clean-arch** principles (based on [bxcodec/go-clean-ar
 ├── callback/                 # Callback use case layer
 │   └── service.go            # Callback delivery logic
 ├── delivery/                 # Delivery layer
-│   ├── rest/                 # HTTP delivery
-│   │   ├── handler.go        # HTTP handlers
-│   │   ├── middleware/       # HTTP middleware
-│   │   └── dto/              # Request/response DTOs
-│   └── websocket/           # WebSocket delivery
-│       └── hub.go
+│   └── rest/                 # HTTP delivery
+│       ├── handler.go        # HTTP handlers
+│       ├── middleware/       # HTTP middleware
+│       └── dto/              # Request/response DTOs
 ├── repository/              # Repository implementations
 │   └── mysql/
 │       ├── connection.go
@@ -126,7 +124,6 @@ The codebase follows **go-clean-arch** principles (based on [bxcodec/go-clean-ar
    - `rest/handler.go` - Gin-based HTTP handlers for task API endpoints
    - `rest/middleware/` - CORS, recovery, and logging middleware
    - `rest/dto/` - Request/response data transfer objects
-   - `websocket/hub.go` - WebSocket hub for real-time updates
 
 4. **Infrastructure Layer** (`infrastructure/`, `repository/`)
    - `worker/pool.go` - Worker pool (default 20 workers) for task execution
@@ -134,7 +131,7 @@ The codebase follows **go-clean-arch** principles (based on [bxcodec/go-clean-ar
    - `repository/mysql/` - MySQL repository implementations
 
 5. **Server** (`server/`)
-   - `server.go` - HTTP server with WebSocket support
+   - `server.go` - HTTP server
 
 ### Tiered Polling Strategy
 
@@ -235,5 +232,4 @@ LOG_FORMAT=json
 - **React 19** with TypeScript
 - **Vite** for build tooling
 - **shadcn/ui** components in `dashboard/src/components/ui/`
-- Real-time updates via WebSocket (Phase 4 feature)
 - Task list, stats, and detail views

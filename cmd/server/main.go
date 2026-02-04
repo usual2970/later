@@ -17,7 +17,6 @@ import (
 	"later/infrastructure/worker"
 	"later/infrastructure/circuitbreaker"
 	"later/infrastructure/logger"
-	"later/delivery/websocket"
 
 	"go.uber.org/zap"
 )
@@ -66,19 +65,14 @@ func main() {
 		logger.Named("callback"),
 	)
 
-	// Initialize WebSocket hub first (needed by worker pool)
-	wsHub := websocket.NewHub()
-	go wsHub.Run()
-
 	// Initialize task service
 	taskService := task.NewService(taskRepo)
 
-	// Initialize worker pool with wsHub
+	// Initialize worker pool
 	workerPool := worker.NewWorkerPool(
 		cfg.Worker.PoolSize,
 		taskService,
 		callbackService,
-		wsHub,
 		logger.Named("worker"),
 	)
 	workerPool.Start(cfg.Worker.PoolSize)
@@ -91,15 +85,11 @@ func main() {
 	}
 	scheduler := task.NewScheduler(taskRepo, workerPool, schedulerCfg)
 
-	// Initialize HTTP handler with wsHub
-	h := rest.NewHandler(taskService, scheduler, wsHub)
+	// Initialize HTTP handler
+	h := rest.NewHandler(taskService, scheduler)
 
 	// Start HTTP server
-	srv := server.NewServerWithHub(cfg.Server, h, wsHub)
-
-	// Hook WebSocket broadcasts into task service lifecycle
-	// This broadcasts events when tasks are created, updated, or deleted
-	setupWebSocketBroadcasts(taskService, wsHub)
+	srv := server.NewServer(cfg.Server, h)
 
 	// Start scheduler in background
 	go scheduler.Start()
@@ -138,14 +128,4 @@ func main() {
 	workerPool.Stop()
 
 	log.Info("Server stopped")
-}
-
-// setupWebSocketBroadcasts configures WebSocket broadcasts for task events
-func setupWebSocketBroadcasts(taskService *task.Service, wsHub interface{}) {
-	// The wsHub is used to broadcast task events to connected clients
-	// In a real implementation, you would hook into the task service methods
-	// For now, we log that WebSocket is ready
-	logger.Info("WebSocket broadcasts configured")
-	_ = taskService
-	_ = wsHub
 }

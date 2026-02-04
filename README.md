@@ -10,8 +10,8 @@ A Go-based asynchronous task scheduling service that provides HTTP callback capa
 - ✅ Automatic HTTP callback delivery with retry logic
 - ✅ Exponential backoff for failed callbacks
 - ✅ Circuit breaker to prevent hammering failing endpoints
-- ✅ Real-time task monitoring via dashboard (coming in Phase 4)
-- ✅ No external message queue dependencies - just PostgreSQL
+- ✅ Task monitoring via dashboard
+- ✅ No external message queue dependencies - just MySQL
 
 ## Architecture
 
@@ -264,11 +264,10 @@ Key configuration options:
 - ✅ Configuration management
 - ✅ Tiered scheduler with time.Ticker
 
-### Phase 2: HTTP API (Next)
-- ⏳ Task submission API
-- ⏳ Task query APIs (list, get details)
-- ⏳ Statistics API
-- ⏳ WebSocket stream for real-time updates
+### Phase 2: HTTP API ✅ (Complete)
+- ✅ Task submission API
+- ✅ Task query APIs (list, get details)
+- ✅ Statistics API
 
 ### Phase 3: Scheduling & Execution
 - ⏳ Worker pool implementation
@@ -277,11 +276,11 @@ Key configuration options:
 - ⏳ Circuit breaker for failing endpoints
 - ⏳ Dead letter queue
 
-### Phase 4: Frontend Dashboard
-- ⏳ React with TypeScript
-- ⏳ shadcn/ui components
-- ⏳ Real-time task updates via WebSocket
-- ⏳ Task list and detail views
+### Phase 3: Frontend Dashboard ✅ (Complete)
+- ✅ React with TypeScript
+- ✅ shadcn/ui components
+- ✅ Task list and detail views
+- ✅ Manual refresh for task updates
 
 ## Contributing
 

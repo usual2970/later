@@ -10,7 +10,7 @@ import (
 	"later/domain/entity"
 	"later/delivery/rest/dto"
 	tasksvc "later/task"
-	"later/delivery/websocket"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,21 +18,14 @@ import (
 type Handler struct {
 	taskService *tasksvc.Service
 	scheduler   *tasksvc.Scheduler
-	wsHub       *websocket.Hub
 }
 
 // NewHandler creates a new HTTP handler
-func NewHandler(taskService *tasksvc.Service, scheduler *tasksvc.Scheduler, wsHub *websocket.Hub) *Handler {
+func NewHandler(taskService *tasksvc.Service, scheduler *tasksvc.Scheduler) *Handler {
 	return &Handler{
 		taskService: taskService,
 		scheduler:   scheduler,
-		wsHub:       wsHub,
 	}
-}
-
-// SetWSHub sets or updates the WebSocket hub
-func (h *Handler) SetWSHub(wsHub *websocket.Hub) {
-	h.wsHub = wsHub
 }
 
 // CreateTask handles POST /api/v1/tasks
@@ -72,16 +65,6 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	// If immediate execution, submit directly to worker pool
 	if task.ShouldExecuteNow() {
 		h.scheduler.SubmitTaskImmediately(task)
-	}
-
-	// Broadcast WebSocket event
-	if h.wsHub != nil {
-		// Convert task.Payload to map[string]interface{} for JSON
-		var payloadMap map[string]interface{}
-		if len(task.Payload) > 0 {
-			json.Unmarshal(task.Payload, &payloadMap)
-		}
-		h.wsHub.BroadcastTaskCreated(task.ID, task.Name, payloadMap)
 	}
 
 	// Build response
@@ -306,11 +289,6 @@ func (h *Handler) CancelTask(c *gin.Context) {
 		return
 	}
 
-	// Broadcast WebSocket event
-	if h.wsHub != nil {
-		h.wsHub.BroadcastTaskDeleted(id)
-	}
-
 	c.JSON(http.StatusNoContent, nil)
 }
 
@@ -356,11 +334,6 @@ func (h *Handler) RetryTask(c *gin.Context) {
 			Message: "Failed to retry task",
 		})
 		return
-	}
-
-	// Broadcast status change to WebSocket clients
-	if h.wsHub != nil {
-		h.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
 	}
 
 	// If immediate execution, submit to worker pool
@@ -469,11 +442,6 @@ func (h *Handler) ResurrectTask(c *gin.Context) {
 			Message: "Failed to resurrect task",
 		})
 		return
-	}
-
-	// Broadcast status change to WebSocket clients
-	if h.wsHub != nil {
-		h.wsHub.BroadcastTaskUpdated(task.ID, string(task.Status))
 	}
 
 	// If immediate execution, submit to worker pool
