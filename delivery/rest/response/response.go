@@ -51,7 +51,8 @@ var (
 
 // Success sends a successful JSON response with status 200
 func Success(c *gin.Context, data interface{}) {
-	c.AbortWithStatusJSON(http.StatusOK, data)
+	log.Printf("[DEBUG] Success: sending %T", data)
+	c.JSON(http.StatusOK, data)
 }
 
 // Error sends an error response based on the error type
@@ -70,7 +71,7 @@ func Error(c *gin.Context, err error) {
 
 	log.Printf("[ERROR] %s: %s - %s", httpErr.Code(), httpErr.Error(), c.Request.URL.Path)
 
-	c.AbortWithStatusJSON(httpErr.HTTPStatus(), gin.H{
+	c.JSON(httpErr.HTTPStatus(), gin.H{
 		"error":   httpErr.Code(),
 		"message": httpErr.Error(),
 	})
@@ -80,7 +81,7 @@ func Error(c *gin.Context, err error) {
 func ErrorWithMessage(c *gin.Context, httpStatus int, code string, message string) {
 	log.Printf("[ERROR] %s: %s - %s", code, message, c.Request.URL.Path)
 
-	c.AbortWithStatusJSON(httpStatus, gin.H{
+	c.JSON(httpStatus, gin.H{
 		"error":   code,
 		"message": message,
 	})
@@ -93,10 +94,10 @@ func NoContent(c *gin.Context) {
 
 // Created sends a 201 Created response
 func Created(c *gin.Context, data interface{}) {
-	c.AbortWithStatusJSON(http.StatusCreated, data)
+	c.JSON(http.StatusCreated, data)
 }
 
 // Accepted sends a 202 Accepted response
 func Accepted(c *gin.Context, data interface{}) {
-	c.AbortWithStatusJSON(http.StatusAccepted, data)
+	c.JSON(http.StatusAccepted, data)
 }
