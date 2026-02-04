@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"later/callback"
-	"later/domain/entity"
+	"github.com/usual2970/later/callback"
+	"github.com/usual2970/later/domain/entity"
 
 	"go.uber.org/zap"
 )

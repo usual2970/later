@@ -106,12 +106,14 @@ Source code dependencies must point only inward, toward high-level policies.
 ```
 
 **Layers (outer → inner):**
+
 1. **Delivery Layer** (`delivery/`, `delivery/rest/`, `delivery/websocket/`) - HTTP/WebSocket handlers
 2. **Use Case Layer** (`task/`, `callback/`) - Business logic orchestration
 3. **Domain Layer** (`domain/`) - Entities and repository interfaces
 4. **Infrastructure** (outside `internal/`) - External concerns
 
 **No dependencies allowed:**
+
 - ❌ Domain → Use Case
 - ❌ Domain → Delivery
 - ❌ Use Case → Delivery
@@ -158,6 +160,7 @@ rmdir internal/usecase
 ```
 
 **Acceptance Criteria:**
+
 - [ ] New directory structure created
 - [ ] Files moved to new locations
 - [ ] Old `internal/{handler,middleware,websocket,usecase}` directories removed
@@ -178,25 +181,27 @@ Update all import paths throughout the codebase:
 6. `internal/repository/mysql/task_repository.go` - Update domain imports
 
 **Import path changes:**
+
 ```go
 // Before
-import "later/internal/domain/models"
-import "later/internal/domain/repositories"
-import "later/internal/usecase"
-import "later/internal/handler"
-import "later/internal/middleware"
-import "later/internal/websocket"
+import "github.com/usual2970/later/internal/domain/models"
+import "github.com/usual2970/later/internal/domain/repositories"
+import "github.com/usual2970/later/internal/usecase"
+import "github.com/usual2970/later/internal/handler"
+import "github.com/usual2970/later/internal/middleware"
+import "github.com/usual2970/later/internal/websocket"
 
 // After
-import "later/internal/domain/entity"
-import "later/internal/domain/repository"
-import "later/internal/task"
-import "later/internal/delivery/rest"
-import "later/internal/delivery/rest/middleware"
-import "later/internal/delivery/websocket"
+import "github.com/usual2970/later/internal/domain/entity"
+import "github.com/usual2970/later/internal/domain/repository"
+import "github.com/usual2970/later/internal/task"
+import "github.com/usual2970/later/internal/delivery/rest"
+import "github.com/usual2970/later/internal/delivery/rest/middleware"
+import "github.com/usual2970/later/internal/delivery/websocket"
 ```
 
 **Acceptance Criteria:**
+
 - [ ] All imports updated across codebase
 - [ ] `go build ./...` succeeds
 - [ ] `go test ./...` passes
@@ -216,10 +221,12 @@ rmdir internal/dto
 ```
 
 **Update imports:**
-- `internal/delivery/rest/handler.go` → `"later/internal/delivery/rest/dto"`
+
+- `internal/delivery/rest/handler.go` → `"github.com/usual2970/later/internal/delivery/rest/dto"`
 - `cmd/server/main.go` → (if DTOs referenced)
 
 **Acceptance Criteria:**
+
 - [ ] DTOs moved to `delivery/rest/dto/`
 - [ ] `JSONBytes` moved to `domain/entity/` as domain concern
 - [ ] All imports updated
@@ -267,6 +274,7 @@ var (
    - Map domain errors to HTTP status codes
 
 **Add error mapper (reference pattern):**
+
 ```go
 // internal/delivery/rest/handler.go
 func getStatusCode(err error) int {
@@ -288,6 +296,7 @@ func getStatusCode(err error) int {
 ```
 
 **Acceptance Criteria:**
+
 - [ ] `internal/domain/errors.go` created with domain-specific errors
 - [ ] `internal/task/task_service.go` uses domain errors
 - [ ] `internal/delivery/rest/handler.go` maps domain errors to HTTP status codes
@@ -299,6 +308,7 @@ func getStatusCode(err error) int {
 Refactor usecase services following the reference pattern:
 
 **Current issues:**
+
 - Repository interfaces defined in `domain/repository/` but also in usecase services
 - Services mix business logic with orchestration
 - Some services (callback, scheduler, worker) are more infrastructure than business logic
@@ -306,6 +316,7 @@ Refactor usecase services following the reference pattern:
 **Improvements:**
 
 1. **Move callback to separate domain**:
+
    ```bash
    mkdir -p internal/callback
    mv internal/usecase/callback_service.go internal/callback/
@@ -322,6 +333,7 @@ Refactor usecase services following the reference pattern:
    - Define interface in task service
 
 **New structure:**
+
 ```
 internal/
 ├── task/
@@ -341,6 +353,7 @@ internal/
 ```
 
 **Acceptance Criteria:**
+
 - [ ] Callback service moved to `internal/callback/`
 - [ ] Worker pool moved to `internal/infrastructure/worker/`
 - [ ] Task service defines repository interfaces locally
@@ -366,6 +379,7 @@ Update all documentation to reflect new structure:
    - Update example imports
 
 **Acceptance Criteria:**
+
 - [ ] CLAUDE.md reflects new structure
 - [ ] All file paths updated
 - [ ] All import paths updated
@@ -376,17 +390,20 @@ Update all documentation to reflect new structure:
 Comprehensive testing to ensure nothing is broken:
 
 1. **Unit tests**:
+
    ```bash
    go test -v ./internal/...
    go test -v ./domain/...
    ```
 
 2. **Integration tests** (if exist):
+
    ```bash
    go test -v ./...
    ```
 
 3. **Build verification**:
+
    ```bash
    make build
    # or
@@ -408,6 +425,7 @@ Comprehensive testing to ensure nothing is broken:
    ```
 
 **Acceptance Criteria:**
+
 - [ ] All unit tests pass
 - [ ] All integration tests pass
 - [ ] Server builds successfully
@@ -419,14 +437,14 @@ Comprehensive testing to ensure nothing is broken:
 
 ### Impact on Existing Features
 
-| Feature | Impact | Breaking Change |
-|---------|--------|-----------------|
-| HTTP API endpoints | None (import paths only) | ❌ No |
-| Task scheduling | None | ❌ No |
-| Callback delivery | None | ❌ No |
-| WebSocket updates | None (import paths only) | ❌ No |
-| Dashboard integration | None (if using API) | ❌ No |
-| Database schema | None | ❌ No |
+| Feature               | Impact                   | Breaking Change |
+| --------------------- | ------------------------ | --------------- |
+| HTTP API endpoints    | None (import paths only) | ❌ No           |
+| Task scheduling       | None                     | ❌ No           |
+| Callback delivery     | None                     | ❌ No           |
+| WebSocket updates     | None (import paths only) | ❌ No           |
+| Dashboard integration | None (if using API)      | ❌ No           |
+| Database schema       | None                     | ❌ No           |
 
 ### Performance Implications
 
@@ -445,22 +463,25 @@ Comprehensive testing to ensure nothing is broken:
 
 ### Migration Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|-----------|
-| Import path errors | Medium | Medium | Comprehensive testing in Phase 7 |
-| Breaking circular dependencies | Low | High | Follow dependency rule strictly |
-| Missing error mappings | Low | Medium | Comprehensive error testing |
-| WebSocket integration issues | Low | Low | Manual testing verification |
+| Risk                           | Likelihood | Impact | Mitigation                       |
+| ------------------------------ | ---------- | ------ | -------------------------------- |
+| Import path errors             | Medium     | Medium | Comprehensive testing in Phase 7 |
+| Breaking circular dependencies | Low        | High   | Follow dependency rule strictly  |
+| Missing error mappings         | Low        | Medium | Comprehensive error testing      |
+| WebSocket integration issues   | Low        | Low    | Manual testing verification      |
 
 ## Alternative Approaches Considered
 
 ### 1. Big Bang Rewrite
+
 **Rejected**: Too risky, hard to validate incrementally
 
 ### 2. Parallel Implementation
+
 **Rejected**: Adds complexity for purely structural change
 
 ### 3. Gradual Migration (Chosen)
+
 **Accepted**: Safe, verifiable, allows rollback at each phase
 
 ## Acceptance Criteria
@@ -498,20 +519,15 @@ Comprehensive testing to ensure nothing is broken:
 ### Critical Files to Modify
 
 **High Priority:**
+
 1. `cmd/server/main.go:1-150` - Update all imports
 2. `internal/delivery/rest/handler.go:1-500` - Restructure as delivery layer
 3. `internal/task/service.go:1-200` - Follow reference service pattern
 4. `internal/domain/errors.go:1-50` - Create new domain errors
 
-**Medium Priority:**
-5. `internal/task/scheduler.go:1-300` - Update imports
-6. `internal/task/worker.go:1-200` - Move to infrastructure
-7. `internal/delivery/rest/routes.go` - Extract route definitions
+**Medium Priority:** 5. `internal/task/scheduler.go:1-300` - Update imports 6. `internal/task/worker.go:1-200` - Move to infrastructure 7. `internal/delivery/rest/routes.go` - Extract route definitions
 
-**Low Priority:**
-8. Package documentation updates
-9. Code comments updates
-10. Example code updates
+**Low Priority:** 8. Package documentation updates 9. Code comments updates 10. Example code updates
 
 ### Mock Generation
 
@@ -529,6 +545,7 @@ mockry --all
 ```
 
 Add to service files:
+
 ```go
 //go:generate mockery --name TaskRepository
 //go:generate mockery --name CallbackService
@@ -559,6 +576,7 @@ Add to service files:
 ### Extensibility
 
 New features will benefit from:
+
 - **Clear location** for new business logic (`internal/<feature>/service.go`)
 - **Standard patterns** for repository interfaces
 - **Easy testing** with generated mocks
@@ -566,6 +584,7 @@ New features will benefit from:
 ### Potential Enhancements
 
 Post-refactoring opportunities:
+
 1. Add unit tests for delivery layer (currently missing)
 2. Add integration test suite
 3. Add API documentation (OpenAPI/Swagger)
@@ -575,6 +594,7 @@ Post-refactoring opportunities:
 ### Migration Path to Other Patterns
 
 This structure enables future migrations to:
+
 - **Hexagonal Architecture**: Easy (ports already defined)
 - **Onion Architecture**: Natural progression
 - **DDD**: Clear bounded contexts already
@@ -619,16 +639,16 @@ This structure enables future migrations to:
 
 ## Timeline Estimate
 
-| Phase | Estimated Effort | Notes |
-|-------|-----------------|-------|
-| Phase 1: Prepare Structure | 2 hours | File moves only |
-| Phase 2: Update Imports | 3 hours | Update all files |
-| Phase 3: Reorganize DTOs | 2 hours | Move DTOs |
-| Phase 4: Add Domain Errors | 3 hours | Create and integrate |
-| Phase 5: Improve Service Layer | 4 hours | Major restructuring |
-| Phase 6: Update Documentation | 2 hours | Docs and comments |
-| Phase 7: Testing & Validation | 4 hours | Comprehensive testing |
-| **Total** | **20 hours** | ~2.5 days |
+| Phase                          | Estimated Effort | Notes                 |
+| ------------------------------ | ---------------- | --------------------- |
+| Phase 1: Prepare Structure     | 2 hours          | File moves only       |
+| Phase 2: Update Imports        | 3 hours          | Update all files      |
+| Phase 3: Reorganize DTOs       | 2 hours          | Move DTOs             |
+| Phase 4: Add Domain Errors     | 3 hours          | Create and integrate  |
+| Phase 5: Improve Service Layer | 4 hours          | Major restructuring   |
+| Phase 6: Update Documentation  | 2 hours          | Docs and comments     |
+| Phase 7: Testing & Validation  | 4 hours          | Comprehensive testing |
+| **Total**                      | **20 hours**     | ~2.5 days             |
 
 ## Rollback Plan
 
@@ -647,6 +667,7 @@ mv internal-backup/ internal/
 ```
 
 **Rollback triggers:**
+
 - Critical bug discovered
 - Performance regression
 - Test failures cannot be resolved
@@ -670,39 +691,39 @@ mv internal-backup/ internal/
 
 ### File Mapping
 
-| Old Path | New Path |
-|----------|----------|
-| `internal/domain/models/task.go` | `internal/domain/entity/task.go` |
-| `internal/domain/repositories/task_repository.go` | `internal/domain/repository/task_repository.go` |
-| `internal/dto/task.go` | `internal/delivery/rest/dto/task.go` |
-| `internal/dto/custom_time.go` | `internal/delivery/rest/dto/custom_time.go` |
-| `internal/dto/json_bytes.go` | `internal/domain/entity/json_bytes.go` |
-| `internal/handler/handler.go` | `internal/delivery/rest/handler.go` |
-| `internal/middleware/cors.go` | `internal/delivery/rest/middleware/cors.go` |
-| `internal/middleware/recovery.go` | `internal/delivery/rest/middleware/recovery.go` |
-| `internal/middleware/logger.go` | `internal/delivery/rest/middleware/logger.go` |
-| `internal/usecase/task_service.go` | `internal/task/service.go` |
-| `internal/usecase/scheduler.go` | `internal/task/scheduler.go` |
-| `internal/usecase/worker.go` | `internal/infrastructure/worker/pool.go` |
-| `internal/usecase/callback_service.go` | `internal/callback/service.go` |
-| `internal/websocket/hub.go` | `internal/delivery/websocket/hub.go` |
-| `internal/infrastructure/logger/logger.go` | No change |
-| `internal/infrastructure/circuitbreaker/circuit_breaker.go` | No change |
-| `internal/repository/mysql/connection.go` | No change |
-| `internal/repository/mysql/task_repository.go` | No change |
+| Old Path                                                    | New Path                                        |
+| ----------------------------------------------------------- | ----------------------------------------------- |
+| `internal/domain/models/task.go`                            | `internal/domain/entity/task.go`                |
+| `internal/domain/repositories/task_repository.go`           | `internal/domain/repository/task_repository.go` |
+| `internal/dto/task.go`                                      | `internal/delivery/rest/dto/task.go`            |
+| `internal/dto/custom_time.go`                               | `internal/delivery/rest/dto/custom_time.go`     |
+| `internal/dto/json_bytes.go`                                | `internal/domain/entity/json_bytes.go`          |
+| `internal/handler/handler.go`                               | `internal/delivery/rest/handler.go`             |
+| `internal/middleware/cors.go`                               | `internal/delivery/rest/middleware/cors.go`     |
+| `internal/middleware/recovery.go`                           | `internal/delivery/rest/middleware/recovery.go` |
+| `internal/middleware/logger.go`                             | `internal/delivery/rest/middleware/logger.go`   |
+| `internal/usecase/task_service.go`                          | `internal/task/service.go`                      |
+| `internal/usecase/scheduler.go`                             | `internal/task/scheduler.go`                    |
+| `internal/usecase/worker.go`                                | `internal/infrastructure/worker/pool.go`        |
+| `internal/usecase/callback_service.go`                      | `internal/callback/service.go`                  |
+| `internal/websocket/hub.go`                                 | `internal/delivery/websocket/hub.go`            |
+| `internal/infrastructure/logger/logger.go`                  | No change                                       |
+| `internal/infrastructure/circuitbreaker/circuit_breaker.go` | No change                                       |
+| `internal/repository/mysql/connection.go`                   | No change                                       |
+| `internal/repository/mysql/task_repository.go`              | No change                                       |
 
 ### Import Path Changes
 
-| Old Import | New Import |
-|------------|------------|
-| `later/internal/domain/models` | `later/internal/domain/entity` |
-| `later/internal/domain/repositories` | `later/internal/domain/repository` |
-| `later/internal/dto` | `later/internal/delivery/rest/dto` |
-| `later/internal/handler` | `later/internal/delivery/rest` |
-| `later/internal/middleware` | `later/internal/delivery/rest/middleware` |
-| `later/internal/usecase` | `later/internal/task` |
-| `later/internal/websocket` | `later/internal/delivery/websocket` |
-| `later/internal/infrastructure/worker` | New package |
+| Old Import                             | New Import                                |
+| -------------------------------------- | ----------------------------------------- |
+| `later/internal/domain/models`         | `later/internal/domain/entity`            |
+| `later/internal/domain/repositories`   | `later/internal/domain/repository`        |
+| `later/internal/dto`                   | `later/internal/delivery/rest/dto`        |
+| `later/internal/handler`               | `later/internal/delivery/rest`            |
+| `later/internal/middleware`            | `later/internal/delivery/rest/middleware` |
+| `later/internal/usecase`               | `later/internal/task`                     |
+| `later/internal/websocket`             | `later/internal/delivery/websocket`       |
+| `later/internal/infrastructure/worker` | New package                               |
 
 ### Architecture Diagram
 
@@ -743,6 +764,7 @@ graph TD
 ```
 
 **Legend:**
+
 - 🟪 Pink: Application entry point
 - 🟦 Blue: Delivery layer (HTTP/WebSocket)
 - 🟩 Green: Use case layer (business logic)

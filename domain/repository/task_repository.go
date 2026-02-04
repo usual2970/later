@@ -3,7 +3,8 @@ package repository
 import (
 	"context"
 	"time"
-	"later/domain/entity"
+
+	"github.com/usual2970/later/domain/entity"
 )
 
 // Note: pgxpool import removed - this is interface definition only
@@ -33,13 +34,13 @@ type TaskRepository interface {
 
 // TaskFilter defines filtering options for listing tasks
 type TaskFilter struct {
-	Status     *entity.TaskStatus
-	Priority   *int
-	Tags       []string
-	DateFrom   *time.Time
-	DateTo     *time.Time
-	Page       int
-	Limit      int
-	SortBy     string // "created_at", "scheduled_at", "priority"
-	SortOrder  string // "asc", "desc"
+	Status    *entity.TaskStatus
+	Priority  *int
+	Tags      []string
+	DateFrom  *time.Time
+	DateTo    *time.Time
+	Page      int
+	Limit     int
+	SortBy    string // "created_at", "scheduled_at", "priority"
+	SortOrder string // "asc", "desc"
 }

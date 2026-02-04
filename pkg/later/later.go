@@ -6,41 +6,41 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
-	"later/callback"
-	"later/domain/repository"
-	"later/infrastructure/circuitbreaker"
-	"later/infrastructure/worker"
-	"later/repository/mysql"
-	tasksvc "later/task"
+	"github.com/usual2970/later/callback"
+	"github.com/usual2970/later/domain/repository"
+	"github.com/usual2970/later/infrastructure/circuitbreaker"
+	"github.com/usual2970/later/infrastructure/worker"
+	"github.com/usual2970/later/repository/mysql"
+	tasksvc "github.com/usual2970/later/task"
 )
 
 // Later is the main struct that manages the task queue system
 type Later struct {
 	// Core components
-	taskService    *tasksvc.Service
-	scheduler      *tasksvc.Scheduler
-	workerPool     worker.WorkerPool
+	taskService     *tasksvc.Service
+	scheduler       *tasksvc.Scheduler
+	workerPool      worker.WorkerPool
 	callbackService *callback.Service
-	taskRepo       repository.TaskRepository
+	taskRepo        repository.TaskRepository
 
 	// Database
-	db             *sqlx.DB
-	dbMode         DBMode
-	closeDB        bool // Close DB on shutdown if separate
+	db      *sqlx.DB
+	dbMode  DBMode
+	closeDB bool // Close DB on shutdown if separate
 
 	// Configuration
-	config         *Config
-	logger         *zap.Logger
+	config *Config
+	logger *zap.Logger
 
 	// Lifecycle
-	ctx            context.Context
-	cancel         context.CancelFunc
-	started        bool
-	mu             sync.RWMutex
+	ctx     context.Context
+	cancel  context.CancelFunc
+	started bool
+	mu      sync.RWMutex
 }
 
 // New creates a new Later instance with functional options

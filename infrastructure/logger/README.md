@@ -12,11 +12,11 @@
 
 ## 环境变量
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `APP_ENV` | 运行环境 | `development` |
-| `LOG_LEVEL` | 日志级别 | `debug` (dev/test), `info` (prod) |
-| `LOG_FILE` | 日志文件路径 | `logs/app.log` (prod only) |
+| 变量名      | 说明         | 默认值                            |
+| ----------- | ------------ | --------------------------------- |
+| `APP_ENV`   | 运行环境     | `development`                     |
+| `LOG_LEVEL` | 日志级别     | `debug` (dev/test), `info` (prod) |
+| `LOG_FILE`  | 日志文件路径 | `logs/app.log` (prod only)        |
 
 ## 快速开始
 
@@ -24,7 +24,7 @@
 
 ```go
 import (
-    "later/internal/infrastructure/logger"
+    "github.com/usual2970/later/internal/infrastructure/logger"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func main() {
 
 ```go
 import (
-    "later/internal/infrastructure/logger"
+    "github.com/usual2970/later/internal/infrastructure/logger"
     "go.uber.org/zap"
 )
 
@@ -77,7 +77,7 @@ func main() {
 
 ```go
 import (
-    "later/internal/infrastructure/logger"
+    "github.com/usual2970/later/internal/infrastructure/logger"
 )
 
 func NewUserService() *UserService {
@@ -96,7 +96,7 @@ func (s *UserService) CreateUser(id string) {
 
 ```go
 import (
-    "later/internal/infrastructure/logger"
+    "github.com/usual2970/later/internal/infrastructure/logger"
 )
 
 func ProcessRequest(req *Request) {
@@ -151,6 +151,7 @@ logger.Fatal("Fatal error, exiting...")           // 致命错误，程序退出
 - **Compress**: 自动 gzip 压缩旧日志
 
 日志文件命名示例：
+
 ```
 logs/app.log           # 当前日志
 logs/app-2026-02-02.log.gz   # 压缩的历史日志
@@ -246,6 +247,7 @@ if logger.Get().Core().Enabled(zapcore.DebugLevel) {
 ### 日志文件未创建
 
 确保：
+
 1. `APP_ENV=production`
 2. 日志目录存在且可写
 3. `LOG_FILE` 路径正确

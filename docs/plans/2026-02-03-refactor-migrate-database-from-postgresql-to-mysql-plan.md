@@ -23,6 +23,7 @@ Migrate the **Later** task scheduling service database from PostgreSQL to MySQL 
 **[USER INPUT REQUIRED - Please specify reason for migration]**
 
 Common reasons might include:
+
 - **Standardization:** Organization standardizes on MySQL for operational consistency
 - **Expertise:** Team has more MySQL experience than PostgreSQL
 - **Infrastructure:** Existing MySQL infrastructure and tooling
@@ -78,41 +79,42 @@ internal/
 
 ### Technology Stack
 
-| Component | Current (PostgreSQL) | New (MySQL) | Rationale |
-|-----------|---------------------|-------------|-----------|
-| **Driver** | `github.com/jackc/pgx/v5` | `github.com/go-sql-driver/mysql` | Standard MySQL driver, production-proven |
-| **Query Builder** | Raw SQL with pgx | `github.com/jmoiron/sqlx` | Ergonomics, struct scanning, 99% of raw SQL performance |
-| **Connection Pool** | `pgxpool.Pool` | `database/sql.DB` | Standard Go database/sql with explicit pool config |
-| **UUID** | `gen_random_uuid()` | `UUID()` function | MySQL 8.0+ built-in UUID |
-| **JSON** | JSONB (binary) | JSON (binary in MySQL 8.0+) | Both support binary JSON storage |
-| **Arrays** | TEXT[] native type | JSON arrays | MySQL lacks native arrays |
-| **Timestamps** | TIMESTAMPTZ | TIMESTAMP | Always use UTC for both |
+| Component           | Current (PostgreSQL)      | New (MySQL)                      | Rationale                                               |
+| ------------------- | ------------------------- | -------------------------------- | ------------------------------------------------------- |
+| **Driver**          | `github.com/jackc/pgx/v5` | `github.com/go-sql-driver/mysql` | Standard MySQL driver, production-proven                |
+| **Query Builder**   | Raw SQL with pgx          | `github.com/jmoiron/sqlx`        | Ergonomics, struct scanning, 99% of raw SQL performance |
+| **Connection Pool** | `pgxpool.Pool`            | `database/sql.DB`                | Standard Go database/sql with explicit pool config      |
+| **UUID**            | `gen_random_uuid()`       | `UUID()` function                | MySQL 8.0+ built-in UUID                                |
+| **JSON**            | JSONB (binary)            | JSON (binary in MySQL 8.0+)      | Both support binary JSON storage                        |
+| **Arrays**          | TEXT[] native type        | JSON arrays                      | MySQL lacks native arrays                               |
+| **Timestamps**      | TIMESTAMPTZ               | TIMESTAMP                        | Always use UTC for both                                 |
 
 ### Key Changes
 
 #### 1. Data Type Mappings
 
-| PostgreSQL | MySQL 8.0+ | Notes |
-|------------|------------|-------|
-| `UUID PRIMARY KEY DEFAULT gen_random_uuid()` | `CHAR(36) PRIMARY KEY DEFAULT (UUID())` | String format UUIDs |
-| `payload JSONB NOT NULL` | `payload JSON NOT NULL` | JSON query syntax differs |
-| `tags TEXT[]` | `tags JSON` | Array operations require JSON functions |
-| `created_at TIMESTAMPTZ DEFAULT NOW()` | `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP` | Must use UTC explicitly |
-| `CHECK (status IN (...))` | `CHECK (status IN (...))` | Supported in MySQL 8.0.16+ |
+| PostgreSQL                                   | MySQL 8.0+                                       | Notes                                   |
+| -------------------------------------------- | ------------------------------------------------ | --------------------------------------- |
+| `UUID PRIMARY KEY DEFAULT gen_random_uuid()` | `CHAR(36) PRIMARY KEY DEFAULT (UUID())`          | String format UUIDs                     |
+| `payload JSONB NOT NULL`                     | `payload JSON NOT NULL`                          | JSON query syntax differs               |
+| `tags TEXT[]`                                | `tags JSON`                                      | Array operations require JSON functions |
+| `created_at TIMESTAMPTZ DEFAULT NOW()`       | `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP` | Must use UTC explicitly                 |
+| `CHECK (status IN (...))`                    | `CHECK (status IN (...))`                        | Supported in MySQL 8.0.16+              |
 
 #### 2. SQL Syntax Changes
 
-| PostgreSQL | MySQL | Example |
-|------------|-------|---------|
-| `$1, $2, $3` | `?` | `WHERE id = ?` |
-| `NOW() - INTERVAL '30 days'` | `DATE_SUB(NOW(), INTERVAL 30 DAY)` | Date arithmetic |
-| `tags && array['urgent']` | `JSON_CONTAINS(tags, '"urgent"')` | Array overlap |
-| `payload->>'key'` | `JSON_UNQUOTE(JSON_EXTRACT(payload, '$.key'))` | JSON field access |
-| `ctid` (tuple ID) | Primary key | Batch deletion |
+| PostgreSQL                   | MySQL                                          | Example           |
+| ---------------------------- | ---------------------------------------------- | ----------------- |
+| `$1, $2, $3`                 | `?`                                            | `WHERE id = ?`    |
+| `NOW() - INTERVAL '30 days'` | `DATE_SUB(NOW(), INTERVAL 30 DAY)`             | Date arithmetic   |
+| `tags && array['urgent']`    | `JSON_CONTAINS(tags, '"urgent"')`              | Array overlap     |
+| `payload->>'key'`            | `JSON_UNQUOTE(JSON_EXTRACT(payload, '$.key'))` | JSON field access |
+| `ctid` (tuple ID)            | Primary key                                    | Batch deletion    |
 
 #### 3. Driver Migration Pattern
 
 **Before (pgx/v5):**
+
 ```go
 type taskRepository struct {
     db *pgxpool.Pool
@@ -129,6 +131,7 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 ```
 
 **After (sqlx + MySQL):**
+
 ```go
 type taskRepository struct {
     db *sqlx.DB
@@ -142,6 +145,7 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 ```
 
 **Benefits:**
+
 - 70% less code (no manual field scanning)
 - Better maintainability
 - Type safety preserved
@@ -153,6 +157,7 @@ func (r *taskRepository) FindByID(ctx context.Context, id string) (*models.Task,
 ### 1. Feature Equivalence Analysis
 
 #### ✅ SKIP LOCKED (Supported in MySQL 8.0+)
+
 Your scheduler's concurrent task processing uses `FOR UPDATE SKIP LOCKED`. MySQL 8.0.1+ supports this natively:
 
 ```sql
@@ -165,7 +170,9 @@ FOR UPDATE SKIP LOCKED;
 ```
 
 #### ⚠️ Partial Indexes (No Direct Equivalent)
+
 PostgreSQL partial indexes:
+
 ```sql
 CREATE INDEX idx_tasks_status_scheduled_priority
 ON task_queue(status, scheduled_at, priority DESC)
@@ -173,6 +180,7 @@ WHERE status IN ('pending', 'processing', 'failed');
 ```
 
 **MySQL Workaround:** Accept larger indexes (recommended for simplicity)
+
 ```sql
 -- No WHERE clause, indexes all rows
 CREATE INDEX idx_tasks_status_scheduled_priority
@@ -182,7 +190,9 @@ ON task_queue(status, scheduled_at, priority DESC);
 **Impact:** Slightly larger index size, but negligible for your workload (task queue with periodic cleanup).
 
 #### ⚠️ GIN Indexes on Arrays (No Direct Equivalent)
+
 PostgreSQL GIN index:
+
 ```sql
 CREATE INDEX idx_tasks_tags ON task_queue USING GIN(tags);
 ```
@@ -190,12 +200,14 @@ CREATE INDEX idx_tasks_tags ON task_queue USING GIN(tags);
 **MySQL Options:**
 
 **Option 1:** JSON functional index (MySQL 8.0.17+)
+
 ```sql
 CREATE INDEX idx_tasks_tags
 ON task_queue((CAST(tags AS CHAR(200) ARRAY)));
 ```
 
 **Option 2:** Normalize to separate table (best for query performance)
+
 ```sql
 CREATE TABLE task_tags (
     task_id CHAR(36) NOT NULL,
@@ -214,7 +226,9 @@ WHERE tt.tag = 'urgent';
 **Recommendation:** Start with Option 1 (JSON functional index) for simplicity. Migrate to Option 2 if tag query performance becomes a bottleneck.
 
 #### ✅ CHECK Constraints (Supported in MySQL 8.0.16+)
+
 Your schema uses CHECK constraints:
+
 ```sql
 CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'dead_lettered'))
 CHECK (priority >= 0 AND priority <= 10)
@@ -224,13 +238,16 @@ CHECK (retry_count <= max_retries)
 MySQL 8.0.16+ supports these with identical syntax. **Ensure MySQL version is 8.0.16 or higher.**
 
 #### ⚠️ RETURNING Clause (No Equivalent)
+
 PostgreSQL:
+
 ```sql
 INSERT INTO task_queue (...) VALUES (...)
 RETURNING id, created_at;
 ```
 
 **MySQL Workaround:** Two-step approach
+
 ```go
 // Step 1: Insert with pre-generated UUID
 taskID := uuid.New().String()
@@ -246,25 +263,27 @@ This pattern is actually more explicit and avoids race conditions.
 
 ### 2. Performance Implications
 
-| Operation | PostgreSQL | MySQL | Notes |
-|-----------|-----------|-------|-------|
-| **JSON queries** | Faster (binary JSONB) | Slightly slower | Negligible for your workload |
-| **Array searches** | Very fast (GIN index) | Slower (JSON functions) | Consider normalizing if frequent |
-| **Connection pooling** | pgxpool (optimized) | database/sql (standard) | Configure explicitly |
-| **SKIP LOCKED** | Native | Native (8.0.1+) | No difference |
-| **Partial indexes** | Space-efficient | Larger indexes | Minimal impact |
+| Operation              | PostgreSQL            | MySQL                   | Notes                            |
+| ---------------------- | --------------------- | ----------------------- | -------------------------------- |
+| **JSON queries**       | Faster (binary JSONB) | Slightly slower         | Negligible for your workload     |
+| **Array searches**     | Very fast (GIN index) | Slower (JSON functions) | Consider normalizing if frequent |
+| **Connection pooling** | pgxpool (optimized)   | database/sql (standard) | Configure explicitly             |
+| **SKIP LOCKED**        | Native                | Native (8.0.1+)         | No difference                    |
+| **Partial indexes**    | Space-efficient       | Larger indexes          | Minimal impact                   |
 
 **Overall:** Performance impact should be minimal for your use case. Monitor after migration.
 
 ### 3. Security Considerations
 
 ✅ **No new security risks** - Both databases support:
+
 - Parameterized queries (prepared statements)
 - TLS/SSL connections
 - Role-based access control
 - Row-level security (if needed)
 
 ⚠️ **Configuration Required:**
+
 - Update connection string to use MySQL SSL options: `?tls=true`
 - Verify MySQL user permissions match PostgreSQL grants
 - Ensure CALLBACK_SECRET HMAC-SHA256 signatures work with JSON payloads (no code changes needed)
@@ -273,12 +292,13 @@ This pattern is actually more explicit and avoids race conditions.
 
 **Critical Difference:** Default transaction isolation levels
 
-| Database | Default Isolation | Impact |
-|----------|------------------|--------|
-| PostgreSQL | READ COMMITTED | Sees committed changes from other transactions |
-| MySQL (InnoDB) | REPEATABLE READ | Doesn't see changes made during transaction |
+| Database       | Default Isolation | Impact                                         |
+| -------------- | ----------------- | ---------------------------------------------- |
+| PostgreSQL     | READ COMMITTED    | Sees committed changes from other transactions |
+| MySQL (InnoDB) | REPEATABLE READ   | Doesn't see changes made during transaction    |
 
 **Your Use Case Impact:**
+
 - Scheduler's `FOR UPDATE SKIP LOCKED` provides row-level locking (works identically)
 - Worker pool processes independent tasks (no cross-task dependencies)
 - **No action needed** - your concurrent task processing is safe
@@ -294,6 +314,7 @@ This pattern is actually more explicit and avoids race conditions.
 **Goal:** Set up MySQL infrastructure and basic connectivity.
 
 #### Tasks:
+
 - [ ] Install MySQL 8.0+ locally or provision development instance
 - [x] Add MySQL dependencies to `go.mod`:
   ```bash
@@ -302,6 +323,7 @@ This pattern is actually more explicit and avoids race conditions.
   ```
 - [x] Create `internal/repository/mysql/` directory
 - [x] Implement `internal/repository/mysql/connection.go`:
+
   ```go
   package mysql
 
@@ -311,7 +333,7 @@ This pattern is actually more explicit and avoids race conditions.
       "time"
       "github.com/jmoiron/sqlx"
       _ "github.com/go-sql-driver/mysql"
-      "later/configs"
+      "github.com/usual2970/later/configs"
   )
 
   func NewConnection(cfg *configs.DatabaseConfig) (*sqlx.DB, error) {
@@ -342,6 +364,7 @@ This pattern is actually more explicit and avoids race conditions.
   ```
 
 - [x] Update `configs/config.go` with MySQL-specific settings:
+
   ```go
   type DatabaseConfig struct {
       URL              string        `mapstructure:"url"`
@@ -367,6 +390,7 @@ This pattern is actually more explicit and avoids race conditions.
 - [ ] Test database connection with ping (requires MySQL instance)
 
 **Success Criteria:**
+
 - ✅ Can connect to MySQL from Go application
 - ✅ Connection pool is configured
 - ✅ Basic ping test succeeds
@@ -378,6 +402,7 @@ This pattern is actually more explicit and avoids race conditions.
 **Goal:** Convert PostgreSQL schema to MySQL and create migration scripts.
 
 #### Tasks:
+
 - [ ] Create `migrations/001_init_schema_mysql.up.sql` with MySQL-compatible DDL:
 
 ```sql
@@ -445,6 +470,7 @@ CREATE TABLE task_tags (
 - [ ] Test data migration with sample data
 
 **Success Criteria:**
+
 - ✅ MySQL schema created successfully
 - ✅ All CHECK constraints applied
 - ✅ Indexes created
@@ -457,11 +483,13 @@ CREATE TABLE task_tags (
 **Goal:** Rewrite repository layer to use MySQL with sqlx.
 
 #### Tasks:
+
 - [x] Implement `internal/repository/mysql/task_repository.go`:
 
 **Key Methods to Migrate:**
 
 1. **Create Task (with pre-generated UUID):**
+
 ```go
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) error {
     // Pre-generate UUID (replaces RETURNING clause)
@@ -487,6 +515,7 @@ func (r *taskRepository) Create(ctx context.Context, task *models.Task) error {
 ```
 
 2. **Find Due Tasks (SKIP LOCKED):**
+
 ```go
 func (r *taskRepository) FindDueTasks(ctx context.Context, limit int, minPriority int) ([]*models.Task, error) {
     query := `
@@ -506,6 +535,7 @@ func (r *taskRepository) FindDueTasks(ctx context.Context, limit int, minPriorit
 ```
 
 3. **List with Dynamic Filters (named parameters):**
+
 ```go
 func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilter) ([]*models.Task, int64, error) {
     query := `SELECT * FROM task_queue WHERE 1=1`
@@ -552,6 +582,7 @@ func (r *taskRepository) List(ctx context.Context, filter repositories.TaskFilte
 ```
 
 4. **Cleanup Expired Data (batch deletion):**
+
 ```go
 func (r *taskRepository) CleanupExpiredData(ctx context.Context, limit int) (int64, error) {
     query := `
@@ -575,6 +606,7 @@ func (r *taskRepository) CleanupExpiredData(ctx context.Context, limit int) (int
 ```
 
 5. **Update Task:**
+
 ```go
 func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
     query := `
@@ -610,13 +642,15 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [x] Update all repository methods following the pattern above
 - [x] Remove old `internal/repository/postgres/` directory
 - [x] Update imports in `cmd/server/main.go`:
+
   ```go
   // Before:
-  // postgres "later/internal/repository/postgres"
+  // postgres "github.com/usual2970/later/internal/repository/postgres"
 
   // After:
-  mysql "later/internal/repository/mysql"
+  mysql "github.com/usual2970/later/internal/repository/mysql"
   ```
+
 - [ ] Update `internal/domain/models/task.go`:
   - `JSONBytes` type already compatible (works with MySQL JSON)
   - Add tags JSON unmarshaling:
@@ -628,6 +662,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
     ```
 
 **Success Criteria:**
+
 - ✅ All CRUD operations work
 - ✅ Dynamic filters (status, priority, tags) work
 - ✅ Batch queries work
@@ -642,6 +677,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 #### Tasks:
 
 **Unit Tests:**
+
 - [ ] Update all repository tests to use MySQL
 - [ ] Test all CRUD operations
 - [ ] Test concurrent access (multiple workers)
@@ -650,6 +686,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [ ] Test error handling
 
 **Integration Tests:**
+
 - [ ] Test scheduler tiered polling (high/normal/cleanup)
 - [ ] Test worker pool task processing
 - [ ] Test callback delivery with retry logic
@@ -658,6 +695,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [ ] Load test with 1000+ concurrent tasks
 
 **Manual Testing:**
+
 - [ ] Submit task via HTTP API
 - [ ] Verify scheduler picks up task
 - [ ] Verify worker processes task
@@ -667,12 +705,14 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [ ] Test dashboard displays tasks correctly
 
 **Performance Testing:**
+
 - [ ] Benchmark query performance vs PostgreSQL
 - [ ] Monitor connection pool metrics
 - [ ] Check for slow queries (>100ms)
 - [ ] Verify SKIP LOCKED prevents contention
 
 **Success Criteria:**
+
 - ✅ All unit tests pass
 - ✅ All integration tests pass
 - ✅ Manual testing shows no regressions
@@ -687,6 +727,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 #### Tasks:
 
 **Pre-Deployment:**
+
 - [ ] Backup PostgreSQL database
 - [ ] Document rollback procedure
 - [ ] Prepare monitoring dashboards
@@ -695,6 +736,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 **Deployment Strategy:**
 
 **Option A: Blue-Green Deployment (Recommended)**
+
 1. Deploy new version with MySQL to staging environment
 2. Run full integration test suite
 3. Point production DNS to new deployment
@@ -702,6 +744,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 5. If issues detected, rollback to PostgreSQL version
 
 **Option B: Dual-Write (Safer for Critical Systems)**
+
 1. Deploy version that writes to both PostgreSQL and MySQL
 2. Read from PostgreSQL, write to both
 3. Verify data consistency for 24-48 hours
@@ -710,6 +753,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 6. Decommission PostgreSQL after 1 week
 
 **Production Steps:**
+
 - [ ] Provision MySQL 8.0+ database instance
 - [ ] Configure MySQL connection (SSL, user permissions)
 - [ ] Run schema migration: `migrations/001_init_schema_mysql.up.sql`
@@ -721,6 +765,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [ ] Keep PostgreSQL backup for 1 week
 
 **Post-Deployment:**
+
 - [ ] Monitor error rates
 - [ ] Monitor query performance
 - [ ] Check for connection pool exhaustion
@@ -728,6 +773,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [ ] Update documentation (CLAUDE.md, README.md)
 
 **Success Criteria:**
+
 - ✅ Production tasks process successfully
 - ✅ Callback delivery rate >99%
 - ✅ No increase in error rate
@@ -738,12 +784,14 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 ### Phase 6: Rollback Plan (If Needed)
 
 **Rollback Triggers:**
+
 - Error rate increases by >50%
 - Callback delivery success rate drops below 95%
 - Task processing stalls for >5 minutes
 - Critical data corruption detected
 
 **Rollback Procedure:**
+
 1. Immediately redeploy previous PostgreSQL version
 2. Restore PostgreSQL database from backup if needed
 3. Verify connectivity and task processing resumes
@@ -772,6 +820,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 ### Non-Functional Requirements
 
 **Performance:**
+
 - [ ] Task creation API responds in <100ms (p95)
 - [ ] Scheduler polling queries complete in <50ms (p95)
 - [ ] Worker task processing throughput ≥20 tasks/second
@@ -779,12 +828,14 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 - [ ] Database connection pool has <5% wait time
 
 **Reliability:**
+
 - [ ] No data loss during migration
 - [ ] Transaction isolation prevents race conditions
 - [ ] SKIP LOCKED prevents duplicate task processing
 - [ ] Graceful shutdown waits for in-flight tasks
 
 **Compatibility:**
+
 - [ ] Go 1.21+ compatibility
 - [ ] MySQL 8.0.16+ (for CHECK constraints)
 - [ ] Existing HTTP API contracts unchanged
@@ -793,17 +844,20 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 ### Quality Gates
 
 **Code Coverage:**
+
 - [ ] Repository layer tests: ≥90% coverage
 - [ ] Integration tests: All critical paths covered
 - [ ] Load tests: Validate 1000+ concurrent tasks
 
 **Documentation:**
+
 - [ ] CLAUDE.md updated with MySQL commands
 - [ ] README.md updated with MySQL setup instructions
 - [ ] Migration documentation created
 - [ ] Runbook updated for MySQL operations
 
 **Code Review:**
+
 - [ ] All changes reviewed by senior engineer
 - [ ] Security review passed (SQL injection, connection security)
 - [ ] Performance review passed (slow queries, connection pooling)
@@ -814,14 +868,14 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 
 ### Technical Metrics
 
-| Metric | Baseline (PostgreSQL) | Target (MySQL) | Measurement |
-|--------|----------------------|----------------|-------------|
-| Task creation latency | p50: 20ms, p95: 80ms | p50: <25ms, p95: <100ms | Application metrics |
-| Scheduler query latency | p50: 10ms, p95: 40ms | p50: <15ms, p95: <50ms | Database slow query log |
-| Task processing throughput | 25 tasks/sec | ≥20 tasks/sec | Worker pool metrics |
-| Callback success rate | 99.2% | ≥99% | Callback service logs |
-| Database connection errors | 0.1% | <0.5% | Connection pool metrics |
-| Data migration accuracy | N/A | 100% | Record count comparison |
+| Metric                     | Baseline (PostgreSQL) | Target (MySQL)          | Measurement             |
+| -------------------------- | --------------------- | ----------------------- | ----------------------- |
+| Task creation latency      | p50: 20ms, p95: 80ms  | p50: <25ms, p95: <100ms | Application metrics     |
+| Scheduler query latency    | p50: 10ms, p95: 40ms  | p50: <15ms, p95: <50ms  | Database slow query log |
+| Task processing throughput | 25 tasks/sec          | ≥20 tasks/sec           | Worker pool metrics     |
+| Callback success rate      | 99.2%                 | ≥99%                    | Callback service logs   |
+| Database connection errors | 0.1%                  | <0.5%                   | Connection pool metrics |
+| Data migration accuracy    | N/A                   | 100%                    | Record count comparison |
 
 ### Business Metrics
 
@@ -832,14 +886,14 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 
 ### Risk Mitigation
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| Data corruption during migration | Low | Critical | Pre-migration backup, checksum validation, rollback plan |
-| Performance degradation | Medium | High | Load testing before production, monitor metrics post-deployment |
-| Connection pool exhaustion | Low | High | Explicit pool configuration, monitoring alerts |
-| JSON query syntax errors | Medium | Medium | Comprehensive integration tests, manual verification |
-| Timezone handling issues | Low | Medium | Force UTC everywhere, add timezone tests |
-| SKIP LOCKED incompatibility | Very Low | High | Verify MySQL version ≥8.0.1 in pre-flight checks |
+| Risk                             | Probability | Impact   | Mitigation                                                      |
+| -------------------------------- | ----------- | -------- | --------------------------------------------------------------- |
+| Data corruption during migration | Low         | Critical | Pre-migration backup, checksum validation, rollback plan        |
+| Performance degradation          | Medium      | High     | Load testing before production, monitor metrics post-deployment |
+| Connection pool exhaustion       | Low         | High     | Explicit pool configuration, monitoring alerts                  |
+| JSON query syntax errors         | Medium      | Medium   | Comprehensive integration tests, manual verification            |
+| Timezone handling issues         | Low         | Medium   | Force UTC everywhere, add timezone tests                        |
+| SKIP LOCKED incompatibility      | Very Low    | High     | Verify MySQL version ≥8.0.1 in pre-flight checks                |
 
 ---
 
@@ -883,9 +937,11 @@ require (
 ### High-Risk Items
 
 #### 1. Data Loss During Migration
+
 **Probability:** Low | **Impact:** Critical
 
 **Mitigation:**
+
 - Full PostgreSQL backup before migration
 - Checksum validation after data migration
 - Run comparison queries to verify record counts
@@ -895,9 +951,11 @@ require (
 **Rollback:** Restore from PostgreSQL backup (<30 minutes)
 
 #### 2. Performance Degradation
+
 **Probability:** Medium | **Impact:** High
 
 **Mitigation:**
+
 - Load test with production-like data volume
 - Benchmark critical queries (scheduler, worker, callbacks)
 - Monitor slow query log in MySQL
@@ -907,9 +965,11 @@ require (
 **Rollback:** Revert to PostgreSQL version (<15 minutes with blue-green)
 
 #### 3. Connection Pool Exhaustion
+
 **Probability:** Low | **Impact:** High
 
 **Mitigation:**
+
 - Explicitly configure connection pool (MaxOpenConns, MaxIdleConns)
 - Monitor connection pool metrics (wait count, wait duration)
 - Set up alerts for connection errors
@@ -920,9 +980,11 @@ require (
 ### Medium-Risk Items
 
 #### 4. JSON Query Syntax Errors
+
 **Probability:** Medium | **Impact:** Medium
 
 **Mitigation:**
+
 - Create comprehensive integration tests for all JSON queries
 - Document PostgreSQL → MySQL JSON syntax differences
 - Add unit tests for JSON extraction, containment, updates
@@ -931,9 +993,11 @@ require (
 **Rollback:** Fix syntax errors and redeploy (<10 minutes)
 
 #### 5. Array Operations on Tags
+
 **Probability:** Medium | **Impact:** Medium
 
 **Mitigation:**
+
 - Start with JSON arrays (simpler migration)
 - Monitor tag query performance
 - If slow, migrate to normalized `task_tags` table (Phase 7)
@@ -942,9 +1006,11 @@ require (
 **Rollback:** Optimize queries or normalize tags (1-2 days)
 
 #### 6. Timezone Handling Issues
+
 **Probability:** Low | **Impact:** Medium
 
 **Mitigation:**
+
 - Force UTC in application code
 - Use `loc=UTC` in MySQL DSN
 - Add timezone tests (create task, verify stored time)
@@ -957,14 +1023,17 @@ require (
 ## Alternative Approaches Considered
 
 ### Option A: Use Database Abstraction Layer
+
 **Description:** Introduce a database abstraction layer (e.g., `sqlx` with interface adapters) to support both PostgreSQL and MySQL simultaneously.
 
 **Pros:**
+
 - Easier rollback (switch via configuration)
 - Support for both databases simultaneously
 - Future-proof for other database migrations
 
 **Cons:**
+
 - Additional complexity (abstract layer to maintain)
 - Performance overhead (interface indirection)
 - Longer development timeline
@@ -973,14 +1042,17 @@ require (
 **Decision:** **REJECTED** - Adds unnecessary complexity for a one-time migration. Direct migration is simpler and more maintainable.
 
 ### Option B: Use ORM (GORM)
+
 **Description:** Replace raw SQL queries with GORM ORM for database-agnostic queries.
 
 **Pros:**
+
 - Database-agnostic query syntax
 - Automatic migrations
 - Built-in relationship handling
 
 **Cons:**
+
 - 20-40% performance penalty vs raw SQL
 - Loss of query optimization control
 - Harder to debug performance issues
@@ -990,14 +1062,17 @@ require (
 **Decision:** **REJECTED** - Performance penalty unacceptable for high-throughput task queue. Current repository pattern is more explicit and maintainable.
 
 ### Option C: Migrate to PostgreSQL-Compatible Database
+
 **Description:** Use a PostgreSQL-compatible alternative (e.g., Amazon Aurora PostgreSQL, Google Cloud SQL).
 
 **Pros:**
+
 - Zero code changes
 - Maintains PostgreSQL feature set
 - Familiar tooling
 
 **Cons:**
+
 - Doesn't address underlying business requirement (if cost/standardization)
 - Still requires migration to new infrastructure
 - No reduction in operational complexity
@@ -1005,14 +1080,17 @@ require (
 **Decision:** **NOT APPLICABLE** - Assumes user has specific business requirement for MySQL.
 
 ### Option D: Dual-Write with Gradual Cutover
+
 **Description:** Run both databases in parallel, write to both, gradually migrate reads.
 
 **Pros:**
+
 - Zero downtime
 - Easy rollback
 - Real-world performance comparison
 
 **Cons:**
+
 - Longer migration timeline (2-4 weeks)
 - More complex code (dual-write logic)
 - Risk of data inconsistency
@@ -1031,6 +1109,7 @@ If tag query performance is inadequate with JSON arrays:
 **Action:** Migrate tags to normalized `task_tags` table.
 
 **Benefits:**
+
 - Faster tag queries (indexed joins vs JSON functions)
 - More flexible tag operations (intersection, union)
 - Better normalization (3NF compliance)
@@ -1046,6 +1125,7 @@ If read throughput becomes bottleneck:
 **Action:** Add MySQL read replicas for dashboard queries, reporting, analytics.
 
 **Benefits:**
+
 - Offload read traffic from primary
 - Improve dashboard performance
 - Enable real-time analytics without impacting worker pool
@@ -1061,6 +1141,7 @@ If connection pool metrics show high wait times:
 **Action:** Implement dynamic connection pool sizing based on load.
 
 **Benefits:**
+
 - Better resource utilization
 - Automatic scaling
 - Reduced connection overhead
@@ -1076,7 +1157,9 @@ If connection pool metrics show high wait times:
 ### Updated Documentation Files
 
 #### CLAUDE.md
+
 **Section: Development Commands - Go Backend**
+
 ```bash
 # Run the server
 make run
@@ -1091,6 +1174,7 @@ mysql -h localhost -u later -p later
 ```
 
 **Section: Environment Configuration**
+
 ```bash
 # Database (MySQL)
 DATABASE_URL=mysql://later:password@localhost:3306/later?parseTime=true&loc=UTC&charset=utf8mb4
@@ -1101,16 +1185,20 @@ DATABASE_CONN_MAX_IDLE_TIME=10m
 ```
 
 **Section: Architecture - Repository Layer**
+
 - Replace "PostgreSQL implementation using pgx/v5" with "MySQL implementation using go-sql-driver/mysql and sqlx"
 - Update connection pool settings table
 - Remove PostgreSQL-specific notes, add MySQL-specific notes
 
 #### README.md
+
 **Section: Prerequisites**
+
 - Replace "PostgreSQL 15+" with "MySQL 8.0.16+"
 - Update Docker Compose configuration
 
 **Section: Quick Start**
+
 ```bash
 # Start MySQL (Docker)
 docker run --name later-mysql \
@@ -1131,7 +1219,9 @@ make run
 ### New Documentation Files
 
 #### `docs/migration-postgresql-to-mysql.md`
+
 **Content:**
+
 - Migration overview
 - Step-by-step migration guide
 - Troubleshooting common issues
@@ -1139,7 +1229,9 @@ make run
 - Rollback procedures
 
 #### `docs/mysql-maintenance.md`
+
 **Content:**
+
 - MySQL backup/restore procedures
 - Index maintenance (ANALYZE TABLE, OPTIMIZE TABLE)
 - Slow query log analysis
@@ -1161,31 +1253,37 @@ make run
 ### External References
 
 **Driver Documentation:**
+
 - [go-sql-driver/mysql GitHub](https://github.com/go-sql-driver/mysql)
 - [jmoiron/sqlx GitHub](https://github.com/jmoiron/sqlx)
 - [MySQL 8.0 Reference Manual](https://dev.mysql.com/doc/refman/8.0/en/)
 
 **Migration Guides:**
+
 - [PostgreSQL to MySQL Migration - SQLines](https://www.sqlines.com/postgresql-to-mysql)
 - [MySQL Workbench Migration Guide](https://dev.mysql.com/doc/workbench/en/wb-migration-database-postgresql-typemapping.html)
 - [AWS Database Migration Service (DMS)](https://aws.amazon.com/dms/)
 
 **Best Practices:**
+
 - [A Production-Grade Guide to Golang Database Connection Management](https://akemara.medium.com/a-production-grade-guide-to-golang-database-management-with-mysql-mariadb-6b00189ec25a)
 - [Go and MySQL: Setting up Connection Pooling](https://medium.com/propertyfinder-engineering/go-and-mysql-setting-up-connection-pooling-4b778ef8e560)
 - [Managing Connections - Official Go Documentation](https://go.dev/doc/database/manage-connections)
 
 **Feature Equivalence:**
+
 - [MySQL 8.0 SKIP LOCKED](https://dev.mysql.com/blog-archive/mysql-8-0-1-using-skip-locked-and-nowait-to-handle-hot-rows/)
 - [PostgreSQL vs MySQL JSON Support](https://www.bytebase.com/blog/postgresql-vs-mysql-json-support/)
 - [MySQL 8.0 Functional Indexes](https://www.percona.com/blog/mysql-8-0-functional-indexes/)
 
 **Performance Comparisons:**
+
 - [GORM vs sqlx: A Practical Comparison](https://medium.com/@elsyarifx/gorm-vs-sqlx-a-practical-comparison-for-go-developers-468767b30196)
 - [Comparing database/sql, GORM, sqlx - JetBrains](https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/)
 - [Go ORMs and Query Builders Comparison](https://www.bytebase.com/blog/golang-orm-query-builder/)
 
 **Troubleshooting:**
+
 - [Go Handling JSON in MySQL](https://www.linkedin.com/pulse/go-handling-json-mysql-tiago-melo)
 - [How to Resolve MySQL JSON Issues in Go](https://www.aubergine.co.uk/insights/working-with-mysql-json-data-type-with-prepared-statements-using-it-in-go-and-resolving-the-problems-i-had)
 
@@ -1301,21 +1399,22 @@ CREATE TABLE task_tags (
 
 ### Common Query Patterns
 
-| Pattern | PostgreSQL | MySQL |
-|---------|-----------|-------|
-| **Parameter placeholders** | `WHERE id = $1` | `WHERE id = ?` |
-| **Current timestamp** | `NOW()` | `CURRENT_TIMESTAMP` or `NOW()` |
-| **Date subtraction** | `NOW() - INTERVAL '30 days'` | `DATE_SUB(NOW(), INTERVAL 30 DAY)` |
-| **JSON field extraction** | `payload->>'key'` | `JSON_UNQUOTE(JSON_EXTRACT(payload, '$.key'))` |
-| **JSON contains** | `payload @> '{"key": "value"}'` | `JSON_CONTAINS(payload, '{"key": "value"}')` |
-| **Array overlap** | `tags && ARRAY['urgent']` | `JSON_CONTAINS(tags, '"urgent"')` |
-| **Array contains** | `'urgent' = ANY(tags)` | `JSON_CONTAINS(tags, '"urgent"')` |
-| **Insert with returning** | `INSERT ... RETURNING id` | Pre-generate UUID or separate SELECT |
-| **Upsert** | `ON CONFLICT (id) DO UPDATE` | `ON DUPLICATE KEY UPDATE` |
+| Pattern                    | PostgreSQL                      | MySQL                                          |
+| -------------------------- | ------------------------------- | ---------------------------------------------- |
+| **Parameter placeholders** | `WHERE id = $1`                 | `WHERE id = ?`                                 |
+| **Current timestamp**      | `NOW()`                         | `CURRENT_TIMESTAMP` or `NOW()`                 |
+| **Date subtraction**       | `NOW() - INTERVAL '30 days'`    | `DATE_SUB(NOW(), INTERVAL 30 DAY)`             |
+| **JSON field extraction**  | `payload->>'key'`               | `JSON_UNQUOTE(JSON_EXTRACT(payload, '$.key'))` |
+| **JSON contains**          | `payload @> '{"key": "value"}'` | `JSON_CONTAINS(payload, '{"key": "value"}')`   |
+| **Array overlap**          | `tags && ARRAY['urgent']`       | `JSON_CONTAINS(tags, '"urgent"')`              |
+| **Array contains**         | `'urgent' = ANY(tags)`          | `JSON_CONTAINS(tags, '"urgent"')`              |
+| **Insert with returning**  | `INSERT ... RETURNING id`       | Pre-generate UUID or separate SELECT           |
+| **Upsert**                 | `ON CONFLICT (id) DO UPDATE`    | `ON DUPLICATE KEY UPDATE`                      |
 
 ### Complete Example: Find Due Tasks
 
 **PostgreSQL:**
+
 ```sql
 SELECT id, name, payload, status, priority, scheduled_at
 FROM task_queue
@@ -1328,6 +1427,7 @@ FOR UPDATE SKIP LOCKED;
 ```
 
 **MySQL:**
+
 ```sql
 SELECT id, name, payload, status, priority, scheduled_at
 FROM task_queue
@@ -1342,6 +1442,7 @@ FOR UPDATE SKIP LOCKED;
 ### Complete Example: Update with Retry Logic
 
 **PostgreSQL:**
+
 ```sql
 UPDATE task_queue
 SET status = $1,
@@ -1353,6 +1454,7 @@ WHERE id = $4;
 ```
 
 **MySQL:**
+
 ```sql
 UPDATE task_queue
 SET status = ?,
@@ -1370,12 +1472,14 @@ WHERE id = ?;
 ## Appendix C: Environment Variables Reference
 
 ### PostgreSQL (Current)
+
 ```bash
 DATABASE_URL=postgres://later:password@localhost:5432/later?sslmode=disable
 DATABASE_MAX_CONNECTIONS=100
 ```
 
 ### MySQL (Target)
+
 ```bash
 # Combined DSN (recommended)
 DATABASE_URL=mysql://later:password@localhost:3306/later?parseTime=true&loc=UTC&charset=utf8mb4&timeout=30s&readTimeout=30s&writeTimeout=30s
@@ -1398,14 +1502,15 @@ DB_CHARSET=utf8mb4
 ```
 
 ### Key DSN Parameters
-| Parameter | Value | Purpose |
-|-----------|-------|---------|
-| `parseTime=true` | - | Parse TIMESTAMP to time.Time |
-| `loc=UTC` | - | Force UTC timezone (critical!) |
-| `charset=utf8mb4` | - | Full Unicode support (emojis, etc.) |
-| `timeout=30s` | - | Connection timeout |
-| `readTimeout=30s` | - | Query read timeout |
-| `writeTimeout=30s` | - | Query write timeout |
+
+| Parameter          | Value | Purpose                             |
+| ------------------ | ----- | ----------------------------------- |
+| `parseTime=true`   | -     | Parse TIMESTAMP to time.Time        |
+| `loc=UTC`          | -     | Force UTC timezone (critical!)      |
+| `charset=utf8mb4`  | -     | Full Unicode support (emojis, etc.) |
+| `timeout=30s`      | -     | Connection timeout                  |
+| `readTimeout=30s`  | -     | Query read timeout                  |
+| `writeTimeout=30s` | -     | Query write timeout                 |
 
 ---
 

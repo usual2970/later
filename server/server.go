@@ -5,18 +5,19 @@ import (
 	"log"
 	"net/http"
 	"time"
-	"later/configs"
-	"later/delivery/rest"
-	"later/delivery/rest/middleware"
+
+	"github.com/usual2970/later/configs"
+	"github.com/usual2970/later/delivery/rest"
+	"github.com/usual2970/later/delivery/rest/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 // Server wraps the gin engine
 type Server struct {
-	engine *gin.Engine
-	config configs.ServerConfig
-	handler *rest.Handler
+	engine     *gin.Engine
+	config     configs.ServerConfig
+	handler    *rest.Handler
 	httpServer *http.Server
 }
 
@@ -30,8 +31,8 @@ func NewServer(cfg configs.ServerConfig, h *rest.Handler) *Server {
 	engine.Use(middleware.CORS())
 
 	s := &Server{
-		engine: engine,
-		config: cfg,
+		engine:  engine,
+		config:  cfg,
 		handler: h,
 	}
 

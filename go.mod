@@ -1,4 +1,4 @@
-module later
+module github.com/usual2970/later
 
 go 1.24.0
 

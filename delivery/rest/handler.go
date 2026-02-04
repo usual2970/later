@@ -5,12 +5,12 @@ import (
 	"errors"
 	"net/http"
 
-	"later/domain"
-	"later/delivery/rest/dto"
-	"later/delivery/rest/response"
-	"later/domain/entity"
-	"later/infrastructure/logger"
-	tasksvc "later/task"
+	"github.com/usual2970/later/delivery/rest/dto"
+	"github.com/usual2970/later/delivery/rest/response"
+	"github.com/usual2970/later/domain"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/infrastructure/logger"
+	tasksvc "github.com/usual2970/later/task"
 
 	"github.com/gin-gonic/gin"
 )

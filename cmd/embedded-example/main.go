@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 
-	"later/pkg/later"
+	"github.com/usual2970/later/pkg/later"
 )
 
 func main() {

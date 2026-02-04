@@ -6,20 +6,20 @@ import (
 	"strings"
 	"time"
 
-	"later/domain/entity"
-	"later/domain/repository"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/domain/repository"
 )
 
 // CreateTaskRequest represents a request to create a new task
 type CreateTaskRequest struct {
-	Name           string          `json:"name" binding:"required"`
-	Payload        entity.JSONBytes   `json:"payload" binding:"required"`
-	CallbackURL    string      `json:"callback_url" binding:"required,url"`
-	ScheduledFor   *CustomTime `json:"scheduled_for"`
-	TimeoutSeconds *int        `json:"timeout_seconds"`
-	MaxRetries     *int        `json:"max_retries"`
-	Priority       int         `json:"priority"`
-	Tags           []string    `json:"tags"`
+	Name           string           `json:"name" binding:"required"`
+	Payload        entity.JSONBytes `json:"payload" binding:"required"`
+	CallbackURL    string           `json:"callback_url" binding:"required,url"`
+	ScheduledFor   *CustomTime      `json:"scheduled_for"`
+	TimeoutSeconds *int             `json:"timeout_seconds"`
+	MaxRetries     *int             `json:"max_retries"`
+	Priority       int              `json:"priority"`
+	Tags           []string         `json:"tags"`
 }
 
 // Validate validates the request and returns an error if invalid
@@ -64,7 +64,7 @@ func (r *CreateTaskRequest) Validate() error {
 type TaskResponse struct {
 	ID                 string            `json:"id"`
 	Name               string            `json:"name"`
-	Payload            string            `json:"payload"`      // Changed from json.RawMessage
+	Payload            string            `json:"payload"` // Changed from json.RawMessage
 	CallbackURL        string            `json:"callback_url"`
 	Status             entity.TaskStatus `json:"status"`
 	CreatedAt          time.Time         `json:"created_at"`
@@ -88,8 +88,8 @@ func (tr TaskResponse) MarshalJSON() ([]byte, error) {
 
 	aux := &struct {
 		Alias
-		CreatedAt   string `json:"created_at"`
-		ScheduledFor string `json:"scheduled_at"`
+		CreatedAt    string  `json:"created_at"`
+		ScheduledFor string  `json:"scheduled_at"`
 		StartedAt    *string `json:"started_at,omitempty"`
 		CompletedAt  *string `json:"completed_at,omitempty"`
 	}{

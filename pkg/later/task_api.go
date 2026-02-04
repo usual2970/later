@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"later/domain/entity"
-	"later/domain/repository"
-	tasksvc "later/task"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/domain/repository"
+	tasksvc "github.com/usual2970/later/task"
 )
 
 // CreateTask creates a new task
@@ -20,15 +20,15 @@ func (l *Later) CreateTask(ctx context.Context, req *CreateTaskRequest) (*entity
 	}
 
 	task := &entity.Task{
-		ID:           uuid.New().String(),
-		Name:         req.Name,
-		Payload:      entity.JSONBytes(req.Payload),
-		CallbackURL:  req.CallbackURL,
-		ScheduledAt:  req.ScheduledAt,
-		Priority:     req.Priority,
-		MaxRetries:   req.MaxRetries,
-		Tags:         req.Tags,
-		Status:       entity.TaskStatusPending,
+		ID:          uuid.New().String(),
+		Name:        req.Name,
+		Payload:     entity.JSONBytes(req.Payload),
+		CallbackURL: req.CallbackURL,
+		ScheduledAt: req.ScheduledAt,
+		Priority:    req.Priority,
+		MaxRetries:  req.MaxRetries,
+		Tags:        req.Tags,
+		Status:      entity.TaskStatusPending,
 	}
 
 	if err := l.taskService.CreateTask(ctx, task); err != nil {
@@ -181,8 +181,8 @@ func (l *Later) GetMetrics() Metrics {
 	health := l.HealthCheck()
 
 	metrics := Metrics{
-		QueueDepth:      0, // Not directly available from current API
-		ActiveWorkers:   0,
+		QueueDepth:          0, // Not directly available from current API
+		ActiveWorkers:       0,
 		CallbackSuccessRate: 0.0,
 	}
 
@@ -202,25 +202,25 @@ func (l *Later) GetMetrics() Metrics {
 
 // CreateTaskRequest represents a request to create a task
 type CreateTaskRequest struct {
-	Name         string            `json:"name"`
-	Payload      []byte            `json:"payload"`
-	CallbackURL  string            `json:"callback_url"`
-	ScheduledAt  time.Time         `json:"scheduled_at"`
-	Priority     int               `json:"priority"`
-	MaxRetries   int               `json:"max_retries"`
-	Tags         []string          `json:"tags"`
+	Name        string    `json:"name"`
+	Payload     []byte    `json:"payload"`
+	CallbackURL string    `json:"callback_url"`
+	ScheduledAt time.Time `json:"scheduled_at"`
+	Priority    int       `json:"priority"`
+	MaxRetries  int       `json:"max_retries"`
+	Tags        []string  `json:"tags"`
 }
 
 // TaskFilter represents filters for listing tasks
 type TaskFilter struct {
-	Status       string     `json:"status"`
-	Priority     *int       `json:"priority"`
-	CreatedAfter *time.Time `json:"created_after"`
+	Status        string     `json:"status"`
+	Priority      *int       `json:"priority"`
+	CreatedAfter  *time.Time `json:"created_after"`
 	CreatedBefore *time.Time `json:"created_before"`
-	Page         int        `json:"page"`
-	Limit        int        `json:"limit"`
-	SortBy       string     `json:"sort_by"`
-	SortOrder    string     `json:"sort_order"`
+	Page          int        `json:"page"`
+	Limit         int        `json:"limit"`
+	SortBy        string     `json:"sort_by"`
+	SortOrder     string     `json:"sort_order"`
 }
 
 // toRepositoryFilter converts TaskFilter to repository.TaskFilter

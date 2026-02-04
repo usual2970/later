@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 
-	"later/domain/entity"
-	"later/domain/repository"
-	"later/domain"
+	"github.com/usual2970/later/domain"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/domain/repository"
 )
 
 // Stats represents statistics
 type Stats struct {
-	Total                int64                        `json:"total"`
+	Total               int64                       `json:"total"`
 	ByStatus            map[entity.TaskStatus]int64 `json:"by_status"`
-	Last24h              Last24hStats                 `json:"last_24h"`
-	CallbackSuccessRate float64                      `json:"callback_success_rate"`
+	Last24h             Last24hStats                `json:"last_24h"`
+	CallbackSuccessRate float64                     `json:"callback_success_rate"`
 }
 
 // Last24hStats represents statistics for the last 24 hours
@@ -90,7 +90,7 @@ func (s *Service) GetStats(ctx context.Context) (*Stats, error) {
 
 	// Calculate last 24h stats
 	last24h := Last24hStats{
-		Submitted: 0,  // TODO: Query from database
+		Submitted: 0, // TODO: Query from database
 		Completed: byStatus[entity.TaskStatusCompleted],
 		Failed:    byStatus[entity.TaskStatusFailed],
 	}
@@ -103,9 +103,9 @@ func (s *Service) GetStats(ctx context.Context) (*Stats, error) {
 	}
 
 	return &Stats{
-		Total:                total,
+		Total:               total,
 		ByStatus:            byStatus,
-		Last24h:              last24h,
+		Last24h:             last24h,
 		CallbackSuccessRate: successRate,
 	}, nil
 }

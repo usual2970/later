@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
-	"later/configs"
+	"github.com/jmoiron/sqlx"
+	"github.com/usual2970/later/configs"
 )
 
 // parseDSN ensures the DSN is in correct MySQL format
@@ -130,8 +130,8 @@ func RunMigrations(db *sqlx.DB, migrationsDir string) error {
 		// Check if error is about duplicate table/index (safe to ignore)
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "Duplicate key name") ||
-		   strings.Contains(errMsg, "Error 1050") || // Table already exists
-		   strings.Contains(errMsg, "Error 1061") { // Duplicate index
+			strings.Contains(errMsg, "Error 1050") || // Table already exists
+			strings.Contains(errMsg, "Error 1061") { // Duplicate index
 			log.Println("MySQL migrations: some objects already exist, continuing...")
 		} else {
 			return fmt.Errorf("failed to execute migration: %w", err)

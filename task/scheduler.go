@@ -2,11 +2,12 @@ package task
 
 import (
 	"context"
-	"later/domain/entity"
-	"later/domain/repository"
-	"later/infrastructure/worker"
 	"log"
 	"time"
+
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/domain/repository"
+	"github.com/usual2970/later/infrastructure/worker"
 
 	"go.uber.org/zap"
 )

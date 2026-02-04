@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"later/domain/entity"
-	"later/infrastructure/logger"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/infrastructure/logger"
 )
 
 // RegisterRoutes registers Later's HTTP routes with the provided Gin engine
@@ -180,18 +180,18 @@ func (l *Later) createTaskHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{
-		"id":                 task.ID,
-		"name":               task.Name,
-		"payload":            payloadStr,
-		"callback_url":       task.CallbackURL,
-		"status":             task.Status,
-		"created_at":         task.CreatedAt,
-		"scheduled_for":      task.ScheduledAt,
+		"id":                  task.ID,
+		"name":                task.Name,
+		"payload":             payloadStr,
+		"callback_url":        task.CallbackURL,
+		"status":              task.Status,
+		"created_at":          task.CreatedAt,
+		"scheduled_for":       task.ScheduledAt,
 		"max_retries":         task.MaxRetries,
 		"retry_count":         task.RetryCount,
 		"callback_attempts":   task.CallbackAttempts,
-		"priority":           task.Priority,
-		"tags":               task.Tags,
+		"priority":            task.Priority,
+		"tags":                task.Tags,
 		"estimated_execution": estimatedExec,
 	})
 }
@@ -216,11 +216,11 @@ func (l *Later) getTaskHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":               task.ID,
-		"name":             task.Name,
-		"payload":          payloadStr,
+		"id":                task.ID,
+		"name":              task.Name,
+		"payload":           payloadStr,
 		"callback_url":      task.CallbackURL,
-		"status":           task.Status,
+		"status":            task.Status,
 		"created_at":        task.CreatedAt,
 		"scheduled_for":     task.ScheduledAt,
 		"started_at":        task.StartedAt,
@@ -228,8 +228,8 @@ func (l *Later) getTaskHandler(c *gin.Context) {
 		"max_retries":       task.MaxRetries,
 		"retry_count":       task.RetryCount,
 		"callback_attempts": task.CallbackAttempts,
-		"priority":         task.Priority,
-		"tags":             task.Tags,
+		"priority":          task.Priority,
+		"tags":              task.Tags,
 		"error_message":     task.ErrorMessage,
 	})
 }
@@ -310,21 +310,21 @@ func (l *Later) listTasksHandler(c *gin.Context) {
 		}
 
 		taskResponses[i] = gin.H{
-			"id":                 task.ID,
-			"name":               task.Name,
-			"payload":            payloadStr,
-			"callback_url":       task.CallbackURL,
-			"status":             task.Status,
-			"created_at":         task.CreatedAt,
-			"scheduled_for":      task.ScheduledAt,
-			"started_at":         task.StartedAt,
-			"completed_at":       task.CompletedAt,
-			"max_retries":        task.MaxRetries,
-			"retry_count":        task.RetryCount,
-			"callback_attempts":  task.CallbackAttempts,
-			"priority":           task.Priority,
-			"tags":               task.Tags,
-			"error_message":      task.ErrorMessage,
+			"id":                task.ID,
+			"name":              task.Name,
+			"payload":           payloadStr,
+			"callback_url":      task.CallbackURL,
+			"status":            task.Status,
+			"created_at":        task.CreatedAt,
+			"scheduled_for":     task.ScheduledAt,
+			"started_at":        task.StartedAt,
+			"completed_at":      task.CompletedAt,
+			"max_retries":       task.MaxRetries,
+			"retry_count":       task.RetryCount,
+			"callback_attempts": task.CallbackAttempts,
+			"priority":          task.Priority,
+			"tags":              task.Tags,
+			"error_message":     task.ErrorMessage,
 		}
 	}
 
@@ -436,18 +436,18 @@ func (l *Later) retryTaskHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{
-		"id":                 retriedTask.ID,
-		"name":               retriedTask.Name,
-		"payload":            payloadStr,
-		"callback_url":       retriedTask.CallbackURL,
-		"status":             retriedTask.Status,
-		"created_at":         retriedTask.CreatedAt,
-		"scheduled_for":      retriedTask.ScheduledAt,
-		"max_retries":        retriedTask.MaxRetries,
-		"retry_count":        retriedTask.RetryCount,
-		"callback_attempts":  retriedTask.CallbackAttempts,
-		"priority":           retriedTask.Priority,
-		"tags":               retriedTask.Tags,
+		"id":                  retriedTask.ID,
+		"name":                retriedTask.Name,
+		"payload":             payloadStr,
+		"callback_url":        retriedTask.CallbackURL,
+		"status":              retriedTask.Status,
+		"created_at":          retriedTask.CreatedAt,
+		"scheduled_for":       retriedTask.ScheduledAt,
+		"max_retries":         retriedTask.MaxRetries,
+		"retry_count":         retriedTask.RetryCount,
+		"callback_attempts":   retriedTask.CallbackAttempts,
+		"priority":            retriedTask.Priority,
+		"tags":                retriedTask.Tags,
 		"estimated_execution": "immediate",
 	})
 }
@@ -513,18 +513,18 @@ func (l *Later) resurrectTaskHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{
-		"id":                 task.ID,
-		"name":               task.Name,
-		"payload":            payloadStr,
-		"callback_url":       task.CallbackURL,
-		"status":             task.Status,
-		"created_at":         task.CreatedAt,
-		"scheduled_for":      task.ScheduledAt,
-		"max_retries":        task.MaxRetries,
-		"retry_count":        task.RetryCount,
-		"callback_attempts":  task.CallbackAttempts,
-		"priority":           task.Priority,
-		"tags":               task.Tags,
+		"id":                  task.ID,
+		"name":                task.Name,
+		"payload":             payloadStr,
+		"callback_url":        task.CallbackURL,
+		"status":              task.Status,
+		"created_at":          task.CreatedAt,
+		"scheduled_for":       task.ScheduledAt,
+		"max_retries":         task.MaxRetries,
+		"retry_count":         task.RetryCount,
+		"callback_attempts":   task.CallbackAttempts,
+		"priority":            task.Priority,
+		"tags":                task.Tags,
 		"estimated_execution": "immediate",
 	})
 }
@@ -545,9 +545,9 @@ func (l *Later) getStatsHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"total":                  stats.Total,
-		"by_status":              stats.ByStatus,
-		"last_24h":                stats.Last24h,
-		"callback_success_rate":  stats.CallbackSuccessRate,
+		"total":                 stats.Total,
+		"by_status":             stats.ByStatus,
+		"last_24h":              stats.Last24h,
+		"callback_success_rate": stats.CallbackSuccessRate,
 	})
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"later/configs"
+	"github.com/usual2970/later/configs"
 )
 
 func main() {

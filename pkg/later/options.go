@@ -7,7 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
-	tasksvc "later/task"
+	tasksvc "github.com/usual2970/later/task"
 )
 
 // Option is a function that configures a Later instance
@@ -19,17 +19,17 @@ type DBOption func(*DatabaseConfig) error
 // Config holds all configuration for a Later instance
 type Config struct {
 	// Database
-	DB              *sqlx.DB
-	DBMode          DBMode
-	DSN             string
-	DBConfig        DatabaseConfig
-	AutoMigration   bool
+	DB            *sqlx.DB
+	DBMode        DBMode
+	DSN           string
+	DBConfig      DatabaseConfig
+	AutoMigration bool
 
 	// HTTP
-	RoutePrefix     string
+	RoutePrefix string
 
 	// Worker Pool
-	WorkerPoolSize  int
+	WorkerPoolSize int
 
 	// Scheduler
 	SchedulerConfig tasksvc.SchedulerConfig
@@ -39,15 +39,15 @@ type Config struct {
 	CallbackSecret  string
 
 	// Logging
-	Logger          *zap.Logger
+	Logger *zap.Logger
 }
 
 // DatabaseConfig holds database-specific configuration
 type DatabaseConfig struct {
-	MaxOpenConns    int
-	MaxIdleConns    int
-	MaxLifetime     time.Duration
-	MaxIdleTime     time.Duration
+	MaxOpenConns int
+	MaxIdleConns int
+	MaxLifetime  time.Duration
+	MaxIdleTime  time.Duration
 }
 
 // DBMode represents the database connection mode

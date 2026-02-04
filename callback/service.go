@@ -10,18 +10,18 @@ import (
 	"net/http"
 	"time"
 
-	"later/domain/entity"
-	"later/infrastructure/circuitbreaker"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/infrastructure/circuitbreaker"
 
 	"go.uber.org/zap"
 )
 
 // Service handles HTTP callback delivery
 type Service struct {
-	client           *http.Client
-	circuitBreaker   *circuitbreaker.CircuitBreaker
-	signingSecret    string
-	logger           *zap.Logger
+	client         *http.Client
+	circuitBreaker *circuitbreaker.CircuitBreaker
+	signingSecret  string
+	logger         *zap.Logger
 }
 
 // NewService creates a new callback service

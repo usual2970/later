@@ -4,12 +4,12 @@
 
 ### 基本迁移对照表
 
-| 标准库 log | 结构化日志 logger | 说明 |
-|------------|-------------------|------|
+| 标准库 log                            | 结构化日志 logger                                          | 说明           |
+| ------------------------------------- | ---------------------------------------------------------- | -------------- |
 | `log.Printf("User %s logged in", id)` | `logger.Info("User logged in", zap.String("user_id", id))` | 使用结构化字段 |
-| `log.Print("Server started")` | `logger.Info("Server started")` | 简单日志 |
-| `log.Fatalf("Failed: %v", err)` | `logger.Fatal("Failed", zap.Error(err))` | 致命错误 |
-| `log.Println("Processing...")` | `logger.Debug("Processing...")` | 调试信息 |
+| `log.Print("Server started")`         | `logger.Info("Server started")`                            | 简单日志       |
+| `log.Fatalf("Failed: %v", err)`       | `logger.Fatal("Failed", zap.Error(err))`                   | 致命错误       |
+| `log.Println("Processing...")`        | `logger.Debug("Processing...")`                            | 调试信息       |
 
 ### 迁移步骤
 
@@ -21,7 +21,7 @@ import "log"
 
 // 新代码
 import (
-    "later/internal/infrastructure/logger"
+    "github.com/usual2970/later/internal/infrastructure/logger"
     "go.uber.org/zap"
 )
 ```
@@ -180,11 +180,13 @@ export LOG_FILE=/var/log/app/app.log
 ### 验证迁移
 
 1. **编译检查**
+
 ```bash
 go build ./...
 ```
 
 2. **运行测试**
+
 ```bash
 go test -v ./...
 ```
@@ -192,13 +194,23 @@ go test -v ./...
 3. **查看日志输出**
 
 开发环境（彩色）:
+
 ```
 2026-02-03T15:55:59.297+0800 INFO main server/main.go:100 Server started {"address": "localhost:8080"}
 ```
 
 生产环境（JSON 文件）:
+
 ```json
-{"level":"info","timestamp":"2026-02-03T15:56:15.716+0800","caller":"server/main.go:100","msg":"Server started","address":"localhost:8080","environment":"production","service":"later"}
+{
+  "level": "info",
+  "timestamp": "2026-02-03T15:56:15.716+0800",
+  "caller": "server/main.go:100",
+  "msg": "Server started",
+  "address": "localhost:8080",
+  "environment": "production",
+  "service": "later"
+}
 ```
 
 ### 常见问题

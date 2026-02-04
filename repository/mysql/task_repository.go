@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"later/domain/entity"
-	"later/domain/repository"
+	"github.com/usual2970/later/domain/entity"
+	"github.com/usual2970/later/domain/repository"
 
 	"github.com/jmoiron/sqlx"
 )

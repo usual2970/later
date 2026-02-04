@@ -8,15 +8,15 @@ import (
 	"syscall"
 	"time"
 
-	"later/configs"
-	"later/server"
-	"later/delivery/rest"
-	"later/repository/mysql"
-	"later/task"
-	"later/callback"
-	"later/infrastructure/worker"
-	"later/infrastructure/circuitbreaker"
-	"later/infrastructure/logger"
+	"github.com/usual2970/later/callback"
+	"github.com/usual2970/later/configs"
+	"github.com/usual2970/later/delivery/rest"
+	"github.com/usual2970/later/infrastructure/circuitbreaker"
+	"github.com/usual2970/later/infrastructure/logger"
+	"github.com/usual2970/later/infrastructure/worker"
+	"github.com/usual2970/later/repository/mysql"
+	"github.com/usual2970/later/server"
+	"github.com/usual2970/later/task"
 
 	"go.uber.org/zap"
 )
@@ -53,8 +53,8 @@ func main() {
 
 	// Initialize circuit breaker
 	cb := circuitbreaker.NewCircuitBreaker(
-		5,                             // maxFailures
-		60*time.Second,                // resetTimeout
+		5,              // maxFailures
+		60*time.Second, // resetTimeout
 	)
 
 	// Initialize callback service
