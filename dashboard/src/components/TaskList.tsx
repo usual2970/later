@@ -33,7 +33,7 @@ export function TaskList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
-  const { data, isLoading } = useTasks(params);
+  const { data, isLoading, isError, error, refetch } = useTasks(params);
   const cancelTask = useCancelTask();
   const retryTask = useRetryTask();
   const resurrectTask = useResurrectTask();
@@ -68,8 +68,21 @@ export function TaskList() {
     setDetailOpen(true);
   };
 
+  // Handle loading state
   if (isLoading) {
     return <div className="flex items-center justify-center p-8">Loading tasks...</div>;
+  }
+
+  // Handle error state
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <p className="text-destructive">Error loading tasks: {error?.message || 'Unknown error'}</p>
+        <Button onClick={() => refetch()} variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -136,14 +149,14 @@ export function TaskList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data?.tasks.length === 0 ? (
+            {!data?.tasks || data.tasks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No tasks found
                 </TableCell>
               </TableRow>
             ) : (
-              data?.tasks.map((task) => (
+              data.tasks.map((task) => (
                 <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell className="font-mono text-xs">
                     {task.id.slice(0, 8)}

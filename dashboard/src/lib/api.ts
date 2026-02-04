@@ -7,7 +7,33 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 second timeout
 });
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Enhance error message with more context
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timeout. Please check your connection and try again.';
+    } else if (error.response) {
+      // Server responded with error status
+      const status = error.response.status;
+      if (status >= 500) {
+        error.message = `Server error (${status}). Please try again later.`;
+      } else if (status === 404) {
+        error.message = 'Resource not found.';
+      } else if (status >= 400) {
+        error.message = error.response.data?.error || `Client error (${status}).`;
+      }
+    } else if (error.request) {
+      // Request made but no response received
+      error.message = 'Network error. Please check if the server is running.';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Task types
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'dead_lettered';
