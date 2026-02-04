@@ -7,10 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func init() {
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-}
-
 // AppError defines the interface for application errors
 type AppError interface {
 	error
@@ -55,9 +51,7 @@ var (
 
 // Success sends a successful JSON response with status 200
 func Success(c *gin.Context, data interface{}) {
-	log.Printf("[RESPONSE] Sending success response to %s", c.Request.URL.Path)
 	c.AbortWithStatusJSON(http.StatusOK, data)
-	log.Printf("[RESPONSE] Response sent to %s", c.Request.URL.Path)
 }
 
 // Error sends an error response based on the error type
