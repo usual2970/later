@@ -28,7 +28,6 @@ func main() {
 
 	// Check if DATABASE_URL is set
 	dsn := os.Getenv("DATABASE_URL")
-	dsn = "clipmate:123456!Aa@tcp(rm-bp16l0io7uman87025o.mysql.rds.aliyuncs.com:3306)/later?parseTime=true&loc=UTC&charset=utf8mb4"
 	if dsn == "" {
 		log.Println("DATABASE_URL not set, using default for demo")
 		log.Println("To run this example:")
